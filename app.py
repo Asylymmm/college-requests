@@ -125,21 +125,18 @@ def find_user(email, password):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute(
-        "SELECT id, full_name, email, password, role, approved FROM users WHERE email=?",
-        (email,)
-    )
+    cur.execute("SELECT * FROM users WHERE email=?", (email,))
     user = cur.fetchone()
     conn.close()
 
     if not user:
         return None
 
-    # проверяем хэш
     if not check_password_hash(user["password"], password):
         return None
 
     return user
+
 
 ADMIN_EMAIL = "shingissuleymen@gmail.com"
 ADMIN_PASSWORD = "Asylym_0309"
@@ -149,20 +146,31 @@ def ensure_admin_exists():
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT COUNT(*) AS cnt FROM users WHERE role='admin'")
-    has_admin = cur.fetchone()["cnt"] > 0
+    admin_email = ADMIN_EMAIL.strip().lower()
+    admin_hash = generate_password_hash(ADMIN_PASSWORD)
 
-    if not has_admin:
+    # ищем админа по email (самый надежный ключ)
+    cur.execute("SELECT id FROM users WHERE email=?", (admin_email,))
+    row = cur.fetchone()
+
+    if row:
+        # обновляем существующую запись (исправит старый пароль/роль)
+        cur.execute("""
+            UPDATE users
+            SET full_name=?,
+                password=?,
+                role='admin',
+                approved=1
+            WHERE id=?
+        """, (ADMIN_FULLNAME, admin_hash, row["id"]))
+    else:
+        # создаём нового
         cur.execute("""
             INSERT INTO users (full_name, email, password, role, approved)
             VALUES (?, ?, ?, 'admin', 1)
-        """, (
-            ADMIN_FULLNAME,
-            ADMIN_EMAIL,
-            generate_password_hash(ADMIN_PASSWORD)
-        ))
-        conn.commit()
+        """, (ADMIN_FULLNAME, admin_email, admin_hash))
 
+    conn.commit()
     conn.close()
 
 
