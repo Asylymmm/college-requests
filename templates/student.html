@@ -2,12 +2,79 @@
 {% block title %}Кабинет студента{% endblock %}
 
 {% block content %}
-<div class="card portal-card p-4 fade-up delay-2">
-  <h1 class="h4 mb-3">Личный кабинет студента</h1>
+<div class="container py-4">
 
-  <div class="d-flex gap-2 flex-wrap">
-    <a class="btn btn-primary" href="/request/new">Подать заявление</a>
-    <a class="btn btn-outline-secondary" href="/my-requests">Мои заявления</a>
+  <!-- Верхняя панель -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+    <div>
+      <div class="text-white-50 small">Личный кабинет</div>
+      <h2 class="text-white m-0">Студент: {{ full_name }}</h2>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-glass" href="{{ url_for('new_request') }}">
+        <i class="bi bi-send"></i> Отправить заявку
+      </a>
+      <a class="btn btn-light-soft" href="{{ url_for('my_requests') }}">
+        <i class="bi bi-collection"></i> Мои заявки
+      </a>
+    </div>
   </div>
+
+  <!-- Карточки-виджеты -->
+  <div class="row g-3">
+    <div class="col-12 col-lg-8">
+      <div class="card card-premium">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <div class="text-muted small">Быстрые действия</div>
+              <div class="h5 mb-0">Создай заявление за 1 минуту</div>
+            </div>
+            <div class="icon-badge">
+              <i class="bi bi-lightning-charge"></i>
+            </div>
+          </div>
+
+          <div class="text-muted mb-4">
+            Выбери тип заявления, коротко опиши ситуацию и отправь. Статус обновится в «Мои заявки».
+          </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-primary-premium" href="{{ url_for('new_request') }}">
+              <i class="bi bi-plus-circle"></i> Новая заявка
+            </a>
+            <a class="btn btn-outline-premium" href="{{ url_for('my_requests') }}">
+              <i class="bi bi-clock-history"></i> История и статусы
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <div class="card card-premium">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <div class="text-muted small">Подсказка</div>
+              <div class="h6 mb-0">Как быстрее получить ответ</div>
+            </div>
+            <div class="icon-badge">
+              <i class="bi bi-info-circle"></i>
+            </div>
+          </div>
+
+          <ul class="list-unstyled m-0 text-muted">
+            <li class="mb-2">• Пиши конкретный заголовок</li>
+            <li class="mb-2">• В тексте: что, когда, кому</li>
+            <li class="mb-2">• Проверь тип заявления</li>
+            <li class="mb-0">• Следи за статусом в «Мои заявки»</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
