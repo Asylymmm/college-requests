@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Новое заявление{% endblock %}
+
+{% block content %}
+<div class="bg-white p-4 rounded shadow-sm">
+  <h1 class="h5 mb-3">Подать заявление</h1>
+
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Тип</label>
+      <select class="form-select" name="req_type" required>
+        <option value="">Выберите</option>
+        <option>Справка</option>
+        <option>Академический отпуск</option>
+        <option>Перевод</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Заголовок</label>
+      <input class="form-control" name="title" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Текст</label>
+      <textarea class="form-control" name="body_text" rows="4" required></textarea>
+    </div>
+
+    <button class="btn btn-primary">Отправить</button>
+    <a class="btn btn-secondary" href="/student">Назад</a>
+  </form>
+</div>
+{% endblock %}

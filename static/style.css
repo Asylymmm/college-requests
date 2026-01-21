@@ -1,0 +1,306 @@
+/* =========================
+   Premium UI (College)
+   Replace whole file
+   ========================= */
+
+:root{
+  --brand: #2F318D;            /* твой фирменный */
+  --brand-2: #1A66FF;          /* подсветка */
+  --ink: #0f172a;              /* текст */
+  --muted: #64748b;            /* вторичный */
+  --bg: #f6f8fc;               /* общий фон */
+  --card: rgba(255,255,255,0.78);
+  --stroke: rgba(15, 23, 42, 0.10);
+  --shadow: 0 22px 70px rgba(2, 6, 23, 0.16);
+  --radius-xl: 22px;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+}
+
+*{
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html, body { height: 100%; }
+body{
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ===== Navbar (white, clean) ===== */
+.navbar-custom{
+  background: rgba(255,255,255,0.9) !important;
+  border-bottom: 1px solid rgba(15,23,42,0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.navbar-custom .navbar-brand,
+.navbar-custom .nav-link{
+  color: var(--ink) !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* кнопки в navbar */
+.navbar .btn{
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-weight: 600;
+}
+
+/* ===== Main hero section =====
+   Без “ядовитого синего”, более premium */
+.hero-section{
+  position: relative;
+  padding: 60px 0;
+}
+
+/* “Сцена” (большой аккуратный контейнер) */
+.hero-shell{
+  position: relative;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(15,23,42,0.08);
+  background:
+    radial-gradient(1200px 700px at 70% 40%, rgba(47,49,141,0.18), transparent 55%),
+    radial-gradient(900px 600px at 25% 65%, rgba(26,102,255,0.16), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.35));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  padding: 38px;
+  min-height: 520px;
+}
+
+/* мягкий “шум/свет” */
+.hero-shell::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(700px 380px at 40% 35%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(850px 520px at 70% 75%, rgba(255,255,255,0.35), transparent 70%);
+  pointer-events:none;
+}
+
+/* сетка внутри (слева инфо, справа форма/карточка) */
+.hero-grid{
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 28px;
+  align-items: center;
+}
+
+@media (max-width: 992px){
+  .hero-grid{ grid-template-columns: 1fr; }
+  .hero-shell{ padding: 22px; min-height: unset; }
+}
+
+/* ===== Left promo block ===== */
+.hero-brand{
+  display:flex;
+  align-items:center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.hero-brand img{
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+}
+
+.hero-title{
+  font-size: 44px;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+}
+
+@media (max-width: 992px){
+  .hero-title{ font-size: 34px; }
+}
+
+.hero-subtitle{
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 18px;
+  max-width: 56ch;
+}
+
+.hero-badges{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.badge-soft{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(15,23,42,0.08);
+  color: rgba(15,23,42,0.74);
+  font-size: 13px;
+}
+
+/* ===== Cards (form / center card) ===== */
+.card-glass{
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 18px 55px rgba(2, 6, 23, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 26px;
+  animation: popIn .45s ease-out both;
+}
+
+@keyframes popIn{
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.card-title{
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+}
+
+.card-note{
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ===== Premium inputs (Bootstrap friendly) ===== */
+.form-floating > .form-control{
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,0.12);
+  box-shadow: none !important;
+}
+
+.form-floating > .form-control:focus{
+  border-color: rgba(47,49,141,0.55);
+  box-shadow: 0 0 0 6px rgba(47,49,141,0.14) !important;
+}
+
+.form-floating > label{
+  color: rgba(100,116,139,0.95);
+}
+
+/* ===== Premium button ===== */
+.btn-premium{
+  width: 100%;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+  border: 0;
+  background: linear-gradient(180deg, var(--brand) 0%, #2447f0 100%);
+  box-shadow: 0 18px 34px rgba(36,71,240,0.22);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+.btn-premium:hover{
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 22px 44px rgba(36,71,240,0.28);
+}
+
+.btn-premium:active{
+  transform: translateY(0px) scale(0.995);
+}
+
+/* ===== Small helper links ===== */
+.helper-line{
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.helper-line a{
+  color: rgba(47,49,141,0.95);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.helper-line a:hover{
+  text-decoration: underline;
+}
+
+/* ===== Footer ===== */
+.footer{
+  background: rgba(255,255,255,0.85);
+  border-top: 1px solid rgba(15,23,42,0.08);
+  padding: 30px 0;
+}
+
+.footer h6{
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.footer, .footer *{
+  color: var(--ink) !important; /* чтобы низ был черным */
+}
+
+.footer a{
+  text-decoration: none !important;
+  transition: color .2s ease, transform .2s ease;
+}
+
+.footer a:hover{
+  color: var(--brand-2) !important;
+}
+
+.footer .contact-link{
+  display:inline-flex;
+  align-items:center;
+  gap: 10px;
+  padding: 6px 0;
+  font-weight: 600;
+}
+
+.footer .contact-link:hover{
+  transform: translateY(-1px);
+}
+
+/* Social icons (убирает “черную палку” возле инсты) */
+.social-icon{
+  font-size: 30px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 14px;
+  color: var(--ink) !important;
+  text-decoration: none !important;
+  transition: transform .18s ease, color .18s ease, opacity .18s ease;
+}
+
+.social-icon:hover{
+  color: var(--brand) !important;
+  transform: translateY(-2px) scale(1.08);
+  opacity: 0.95;
+}
+
+.social-icon:focus,
+.footer a:focus{
+  outline: none;
+  box-shadow: 0 0 0 6px rgba(47,49,141,0.14);
+  border-radius: 10px;
+}

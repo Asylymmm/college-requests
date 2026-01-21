@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+  <div class="hero-shell">
+    <div class="hero-grid">
+
+      <!-- ЛЕВАЯ ЧАСТЬ: ЛОГО + ОПИСАНИЕ (чтобы не было пусто) -->
+      <div>
+        <div class="hero-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Логотип">
+          <div class="fw-bold">Almaty College of Service and Technology</div>
+        </div>
+
+        <h1 class="hero-title">Вход в систему</h1>
+        <p class="hero-subtitle">
+          Система электронных заявлений для студентов и сотрудников.
+          Быстрая подача заявок, отслеживание статуса и обработка администрацией.
+        </p>
+
+        <div class="hero-badges">
+          <span class="badge-soft">📝 Онлайн-заявления</span>
+          <span class="badge-soft">✅ Статусы обработки</span>
+          <span class="badge-soft">🔒 Безопасный доступ</span>
+        </div>
+      </div>
+
+      <!-- ПРАВАЯ ЧАСТЬ: ФОРМА -->
+      <div class="card-glass">
+        <div class="card-title">Авторизация</div>
+        <div class="card-note">Введите логин и пароль, выданные администрацией.</div>
+
+        <form method="post">
+          <!-- ВАЖНО: form-floating решает проблему с лейблами -->
+          <div class="form-floating mb-3">
+            <input class="form-control" id="username" name="email" placeholder="Email" required>
+            <label for="username">Логин</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input class="form-control" id="password" name="password" type="password" placeholder="Пароль" required>
+            <label for="password">Пароль</label>
+          </div>
+
+          <button class="btn-premium" type="submit">Войти</button>
+
+          <div class="helper-line">
+            <span>Забыли пароль?</span>
+            <span>Напишите: <a href="mailto:agksitcollege@gmail.com">agksitcollege@gmail.com</a></span>
+            <span>или позвоните: <a href="tel:+77273923742">+7 (727) 392-37-42</a></span>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

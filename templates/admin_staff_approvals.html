@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Админ — Подтверждение сотрудников{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="m-0">Подтверждение сотрудников</h3>
+    <a class="btn btn-outline-secondary" href="{{ url_for('panel_requests') }}">← Назад к заявкам</a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>ФИО</th>
+            <th>Email</th>
+            <th>Статус</th>
+            <th class="text-end"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in rows %}
+          <tr>
+            <td class="fw-semibold">{{ u.full_name }}</td>
+            <td>{{ u.email }}</td>
+            <td>
+              {% if u.approved == 1 %}
+                <span class="badge bg-success">Одобрен</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Ожидает</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if u.approved != 1 %}
+              <form method="post" action="{{ url_for('admin_staff_approve', user_id=u.id) }}" class="d-inline">
+                <button class="btn btn-sm btn-success">Одобрить</button>
+              </form>
+              <form method="post" action="{{ url_for('admin_staff_reject', user_id=u.id) }}" class="d-inline ms-2">
+                <button class="btn btn-sm btn-outline-danger">Отклонить</button>
+              </form>
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

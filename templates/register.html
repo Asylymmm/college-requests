@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Регистрация{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+  <div class="hero-shell">
+    <div class="hero-grid">
+
+      <div>
+        <div class="hero-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Логотип">
+          <div class="fw-bold">Almaty College of Service and Technology</div>
+        </div>
+
+        <h1 class="hero-title">Регистрация</h1>
+        <p class="hero-subtitle">
+          Создайте аккаунт студента или сотрудника. Для сотрудников требуется специальный код.
+        </p>
+
+        <div class="hero-badges">
+          <span class="badge-soft">🔐 Безопасный доступ</span>
+          <span class="badge-soft">📧 Gmail + пароль</span>
+          <span class="badge-soft">👩‍💼 Роли: студент/сотрудник</span>
+        </div>
+      </div>
+
+      <div class="card-glass">
+        <div class="card-title">Создание аккаунта</div>
+        <div class="card-note">Введите данные. Выберите роль ниже.</div>
+
+        <form method="post" id="regForm">
+
+          <div class="form-floating mb-3">
+            <input class="form-control" id="full_name" name="full_name" placeholder="ФИО" required>
+            <label for="full_name">ФИО</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input class="form-control" id="email" name="email" placeholder="Gmail" required>
+            <label for="email">Gmail (например: name@gmail.com)</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input class="form-control" id="password" name="password" type="password" placeholder="Пароль" required>
+            <label for="password">Пароль</label>
+          </div>
+
+          <!-- роль -->
+          <div class="mb-3">
+            <div class="fw-semibold mb-2">Кто вы?</div>
+            <div class="d-flex gap-2 flex-wrap">
+              <input type="radio" class="btn-check" name="role" id="role_student" value="student" checked>
+              <label class="btn btn-outline-primary" for="role_student">Я студент</label>
+
+              <input type="radio" class="btn-check" name="role" id="role_staff" value="staff">
+              <label class="btn btn-outline-primary" for="role_staff">Я сотрудник колледжа</label>
+            </div>
+          </div>
+
+          <!-- код сотрудника (скрыт по умолчанию) -->
+          <div class="form-floating mb-3" id="staffCodeWrap" style="display:none;">
+            <input class="form-control" id="staff_code" name="staff_code" placeholder="Код сотрудника">
+            <label for="staff_code">Специальный код сотрудника</label>
+            <div class="helper-line">
+              <span>Код выдает администрация колледжа.</span>
+            </div>
+          </div>
+
+          <button class="btn-premium" type="submit">Зарегистрироваться</button>
+
+          <div class="helper-line">
+            <span>Уже есть аккаунт?</span>
+            <a href="/login">Войти</a>
+          </div>
+        </form>
+
+        <script>
+          const staffWrap = document.getElementById('staffCodeWrap');
+          const roleStudent = document.getElementById('role_student');
+          const roleStaff = document.getElementById('role_staff');
+
+          function syncRole() {
+            staffWrap.style.display = roleStaff.checked ? 'block' : 'none';
+          }
+          roleStudent.addEventListener('change', syncRole);
+          roleStaff.addEventListener('change', syncRole);
+          syncRole();
+        </script>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

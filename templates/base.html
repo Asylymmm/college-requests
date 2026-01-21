@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Система заявлений{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+  .navbar {
+    min-height: 64px;   /* фиксируем высоту шапки */
+  }
+
+  .navbar-brand img {
+    height: 60px;       /* размер логотипа */
+    width: auto;
+  }
+
+  /* убираем подчеркивание */
+  .social-icon {
+    text-decoration: none;
+    font-size: 28px;
+    color: #000;
+    transition: color 0.3s ease, transform 0.3s ease;
+  }
+
+  /* hover эффект */
+  .social-icon:hover {
+    transform: scale(1.2);
+  }
+
+  .social-icon.instagram:hover {
+    color: #E1306C;
+  }
+
+  .social-icon.tiktok:hover {
+    color: #000;
+    text-shadow: 0 0 8px #000;
+  }
+</style>
+
+  <style>
+    .social-icon {
+      text-decoration: none;
+      font-size: 28px;
+      color: #000;
+      transition: color 0.3s ease, transform 0.3s ease;
+    }
+
+    .social-icon:hover {
+      transform: scale(1.2);
+    }
+
+    .social-icon.instagram:hover {
+      color: #E1306C;
+    }
+
+    .social-icon.tiktok:hover {
+      color: #000;
+      text-shadow: 0 0 8px #000;
+    }
+
+    .contact-item a {
+      color: #000;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    .contact-item a:hover {
+      color: #0d6efd;
+      text-decoration: underline;
+    }
+
+    /* Анимации */
+.fade-up {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+.delay-1 { animation-delay: 0.10s; }
+.delay-2 { animation-delay: 0.25s; }
+.delay-3 { animation-delay: 0.40s; }
+
+@keyframes fadeUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Общий стиль карточек */
+.portal-card {
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+  </style>
+</head>
+
+<body class="bg-light d-flex flex-column min-vh-100">
+
+<nav class="navbar navbar-expand-lg navbar-custom">
+  <div class="container">
+    {% if session.get("user_id") %}
+      <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" height="36" alt="logo">
+      </a>
+    {% else %}
+      <a class="navbar-brand" href="{{ url_for('home') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" height="36" alt="logo">
+      </a>
+    {% endif %}
+
+    <div class="ms-auto d-flex align-items-center gap-2">
+      {% if session.get("full_name") %}
+        <span class="text-dark small">👤 {{ session.get("full_name") }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-logout">Выйти</a>
+
+      {% else %}
+  <a class="btn btn-outline-primary btn-sm" href="/login">Вход</a>
+  <a class="btn btn-primary btn-sm" href="/register">Регистрация</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<main class="bg-primary py-5 flex-grow-1 fade-up delay-1">
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container py-5">
+    <div class="row gy-4 align-items-start">
+
+      <!-- ЛОГО -->
+      <div class="col-md-4">
+        <img src="/static/logo.png" alt="Логотип колледжа" style="height:60px;">
+      </div>
+
+      <!-- БАЙЛАНЫСТАР -->
+       <div class="col-md-4">
+  <h6 class="fw-bold mb-3 text-dark">Байланыстар</h6>
+
+  <p class="contact-item">
+    📍 <a href="https://go.2gis.com/cG36H" target="_blank">
+      Алматы қаласы, Сатбаев көшесі, 86
+    </a>
+  </p>
+
+  <p class="contact-item">
+    ✉️ <a href="mailto:agksitcollege@gmail.com
+">agksitcollege@gmail.com</a>
+  </p>
+
+  <p class="contact-item">
+    📞 <a href="tel:+77273923742">+7 (727) 392-37-42</a>
+  </p>
+</div>
+
+      <!-- ӘЛЕУМЕТТІК ЖЕЛІЛЕР -->
+       <div class="col-md-4">
+  <h6 class="fw-bold mb-3 text-dark">Әлеуметтік желілер</h6>
+
+  <a href="https://www.instagram.com/college_service_and_technology"
+     target="_blank"
+     class="social-icon me-3 instagram">
+    <i class="bi bi-instagram"></i>
+  </a>
+
+  <a href="https://www.tiktok.com/@college_service_"
+     target="_blank"
+     class="social-icon tiktok">
+    <i class="bi bi-tiktok"></i>
+  </a>
+</div>
+
+    </div>
+  </div>
+
+  <div class="text-center py-3 border-top border-light small">
+    © 2026 Алматинский колледж сервиса и технологий. Учебный проект.
+  </div>
+  <div class="text-center py-3,2 border-top border-light small">
+    inst:su1eymenov_v
+  </div>
+</footer>
+
+</body>
+</html>

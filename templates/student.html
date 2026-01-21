@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Кабинет студента{% endblock %}
+
+{% block content %}
+<div class="card portal-card p-4 fade-up delay-2">
+  <h1 class="h4 mb-3">Личный кабинет студента</h1>
+
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-primary" href="/request/new">Подать заявление</a>
+    <a class="btn btn-outline-secondary" href="/my-requests">Мои заявления</a>
+  </div>
+</div>
+{% endblock %}

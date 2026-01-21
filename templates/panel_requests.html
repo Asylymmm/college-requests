@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Панель — Заявки{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="m-0">Все заявки</h3>
+
+    {% if session.get("role") == "admin" %}
+      <a class="btn btn-college" href="{{ url_for('admin_staff_approvals') }}">Подтверждение сотрудников</a>
+    {% endif %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Студент</th>
+            <th>Тип</th>
+            <th>Тема</th>
+            <th>Статус</th>
+            <th>Дата</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>#{{ r.id }}</td>
+            <td>
+              <div class="fw-semibold">{{ r.full_name }}</div>
+              <div class="text-muted small">{{ r.email }}</div>
+            </td>
+            <td>{{ r.req_type }}</td>
+            <td class="fw-semibold">{{ r.title }}</td>
+            <td>{{ r.status }}</td>
+            <td>{{ r.created_at[:10] }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('panel_request_view', req_id=r.id) }}">Открыть</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+  <div class="hero-shell">
+    <div class="hero-grid">
+
+      <div>
+        <div class="hero-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Логотип">
+          <div class="fw-bold">Almaty College of Service and Technology</div>
+        </div>
+
+        <h1 class="hero-title">Система электронных заявлений</h1>
+        <p class="hero-subtitle">
+          Подайте заявление онлайн, отслеживайте статус и получайте ответы от сотрудников колледжа
+          в одном месте.
+        </p>
+
+        <div class="hero-badges">
+          <span class="badge-soft">📌 Быстрая подача</span>
+          <span class="badge-soft">🕒 История заявок</span>
+          <span class="badge-soft">📣 Уведомления</span>
+        </div>
+      </div>
+
+      <div class="card-glass text-center">
+        <div class="card-title">Войти в систему</div>
+        <div class="card-note">Для доступа используйте учетные данные колледжа.</div>
+        <a href="/login" class="btn-premium d-inline-block" style="max-width:320px; margin: 0 auto;">
+          Перейти к входу
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}
