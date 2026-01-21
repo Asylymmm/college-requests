@@ -490,8 +490,10 @@ def logout():
     session.clear()
     return redirect(url_for("home"))
 
+# ✅ Инициализация для Railway/Gunicorn (когда файл импортируется)
+init_db()
+migrate_users_table_if_needed()
+ensure_admin_exists()
+
 if __name__ == "__main__":
-    init_db()
-    migrate_users_table_if_needed()
-    ensure_admin_exists()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=True)
