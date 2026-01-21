@@ -173,6 +173,44 @@ def ensure_admin_exists():
     conn.commit()
     conn.close()
 
+def ensure_test_users():
+    conn = get_db()
+    cur = conn.cursor()
+
+    users = [
+        {
+            "full_name": "Тест Студент",
+            "email": "student1",
+            "password": "123456",
+            "role": "student",
+            "approved": 1
+        },
+        {
+            "full_name": "Тест Сотрудник",
+            "email": "staff1",
+            "password": "123456",
+            "role": "staff",
+            "approved": 1
+        }
+    ]
+
+    for u in users:
+        cur.execute("SELECT id FROM users WHERE email=?", (u["email"],))
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO users (full_name, email, password, role, approved)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                u["full_name"],
+                u["email"],
+                generate_password_hash(u["password"]),
+                u["role"],
+                u["approved"]
+            ))
+
+    conn.commit()
+    conn.close()
+
 
 @app.route("/panel/requests")
 @login_required
@@ -502,6 +540,7 @@ def logout():
 init_db()
 migrate_users_table_if_needed()
 ensure_admin_exists()
+ensure_test_users()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
