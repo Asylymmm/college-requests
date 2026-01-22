@@ -229,24 +229,6 @@ def panel_requests():
     conn.close()
     return render_template("panel_requests.html", rows=rows)
 
-@app.route("/panel/request/<int:req_id>")
-@login_required
-@role_required("staff", "admin")
-def panel_request_view(req_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT r.*, u.full_name, u.email
-        FROM requests r
-        JOIN users u ON u.id = r.user_id
-        WHERE r.id=?
-    """, (req_id,))
-    r = cur.fetchone()
-    conn.close()
-    if not r:
-        return "Заявка не найдена"
-    return render_template("panel_request_view.html", r=r)
-
 @app.route("/panel/request/<int:req_id>/status/<status>", methods=["POST"])
 @login_required
 @role_required("staff", "admin")
@@ -263,8 +245,28 @@ def panel_request_set_status(req_id, status):
     """, (status, datetime.now().isoformat(), req_id))
     conn.commit()
     conn.close()
-    return redirect(url_for("panel_request_view", req_id=req_id))
+    return redirect(url_for("panel_requests"))
 
+@app.route("/panel/request/<int:req_id>")
+@login_required
+@role_required("staff", "admin")
+def panel_request_view(req_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT r.*, u.full_name, u.email
+        FROM requests r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.id = ?
+    """, (req_id,))
+    r = cur.fetchone()
+    conn.close()
+
+    if not r:
+        return "Заявка не найдена"
+
+    # ВАЖНО: имя файла ТОЧНО как в templates
+    return render_template("panel_request_view.html", r=r)
 
 @app.route("/")
 def home():
@@ -459,7 +461,7 @@ def admin_request_view(req_id):
     if not r:
         return "Заявление не найдено"
 
-    return render_template("request_view.html", r=r)
+    return render_template("panel_request_view.html", r=r)
 
 @app.route("/admin/request/<int:req_id>/status/<status>", methods=["POST"])
 def admin_request_set_status(req_id, status):

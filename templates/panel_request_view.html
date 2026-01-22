@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Заявка #{{ r["id"] }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 980px;">
+
+  <!-- Header -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+    <div>
+      <div class="text-white-50 small">Просмотр заявки</div>
+      <h2 class="text-white m-0">Заявка #{{ r["id"] }}</h2>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-light-soft" href="{{ url_for('panel_requests') }}">
+        <i class="bi bi-arrow-left"></i> Назад к списку
+      </a>
+    </div>
+  </div>
+
+  <div class="card card-premium">
+    <div class="card-body p-4 p-md-5">
+
+      <!-- Meta row -->
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6">
+          <div class="text-muted small">Студент</div>
+          <div class="fw-semibold">{{ r["full_name"] }}</div>
+          <div class="text-muted small">{{ r["email"] }}</div>
+        </div>
+
+        <div class="col-6 col-md-3">
+          <div class="text-muted small">Тип</div>
+          <div class="fw-semibold">{{ r["req_type"] }}</div>
+        </div>
+
+        <div class="col-6 col-md-3">
+          <div class="text-muted small">Дата</div>
+          <div class="fw-semibold">{{ r["created_at"][:10] }}</div>
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="mb-2 text-muted small">Заголовок</div>
+      <div class="fw-semibold mb-4">{{ r["title"] }}</div>
+
+      <div class="mb-2 text-muted small">Текст</div>
+      <div class="border rounded p-3" style="background: rgba(15,23,42,0.03);">
+        {{ r["body_text"] }}
+      </div>
+
+      <hr class="my-4">
+
+      <!-- Current status -->
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+        <div>
+          <span class="text-muted small">Текущий статус:</span>
+          <span class="fw-semibold ms-1">
+            {% if r["status"] == "review" %}На рассмотрении{% endif %}
+            {% if r["status"] == "accepted" %}Просмотрено{% endif %}
+            {% if r["status"] == "returned" %}Отклонено{% endif %}
+          </span>
+        </div>
+
+        <div>
+          {% if r["status"] == "review" %}
+            <span class="badge badge-soft badge-review">На рассмотрении</span>
+          {% elif r["status"] == "accepted" %}
+            <span class="badge badge-soft badge-accepted">Просмотрено</span>
+          {% else %}
+            <span class="badge badge-soft badge-returned">Отклонено</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex gap-2 flex-wrap">
+        <form method="post" action="{{ url_for('panel_request_set_status', req_id=r['id'], status='accepted') }}">
+          <button class="btn btn-primary-premium" type="submit">
+            <i class="bi bi-check2-circle"></i> Просмотрено
+          </button>
+        </form>
+
+        <form method="post" action="{{ url_for('panel_request_set_status', req_id=r['id'], status='returned') }}">
+          <button class="btn btn-outline-premium" type="submit" style="border-color: rgba(239,68,68,0.35); color:#b91c1c;">
+            <i class="bi bi-x-circle"></i> Отклонить
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

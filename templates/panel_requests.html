@@ -1,49 +1,94 @@
 {% extends "base.html" %}
 {% block title %}Панель — Заявки{% endblock %}
+
 {% block content %}
 <div class="container py-4">
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h3 class="m-0">Все заявки</h3>
 
-    {% if session.get("role") == "admin" %}
-      <a class="btn btn-college" href="{{ url_for('admin_staff_approvals') }}">Подтверждение сотрудников</a>
-    {% endif %}
-  </div>
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+    <div>
+      <div class="text-white-50 small">Панель</div>
+      <h2 class="text-white m-0">Все заявки</h2>
+    </div>
 
-  <div class="card shadow-sm">
-    <div class="table-responsive">
-      <table class="table align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>ID</th>
-            <th>Студент</th>
-            <th>Тип</th>
-            <th>Тема</th>
-            <th>Статус</th>
-            <th>Дата</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in rows %}
-          <tr>
-            <td>#{{ r.id }}</td>
-            <td>
-              <div class="fw-semibold">{{ r.full_name }}</div>
-              <div class="text-muted small">{{ r.email }}</div>
-            </td>
-            <td>{{ r.req_type }}</td>
-            <td class="fw-semibold">{{ r.title }}</td>
-            <td>{{ r.status }}</td>
-            <td>{{ r.created_at[:10] }}</td>
-            <td class="text-end">
-              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('panel_request_view', req_id=r.id) }}">Открыть</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-glass" href="{{ url_for('staff_dashboard') }}">
+        <i class="bi bi-arrow-left"></i> В кабинет
+      </a>
+
+      {% if session.get("role") == "admin" %}
+        <a class="btn btn-light-soft" href="{{ url_for('admin_staff_approvals') }}">
+          <i class="bi bi-person-check"></i> Подтверждение сотрудников
+        </a>
+      {% endif %}
     </div>
   </div>
+
+  <div class="card card-premium">
+    <div class="card-body p-0">
+
+      {% if rows and rows|length > 0 %}
+      <div class="table-responsive">
+        <table class="table table-premium mb-0 align-middle">
+          <thead>
+            <tr>
+              <th class="ps-4">ID</th>
+              <th>Студент</th>
+              <th>Тип</th>
+              <th>Тема</th>
+              <th>Статус</th>
+              <th>Дата</th>
+              <th class="text-end pe-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td class="ps-4">#{{ r["id"] }}</td>
+
+              <td>
+                <div class="fw-semibold">{{ r["full_name"] }}</div>
+                <div class="text-muted small">{{ r["email"] }}</div>
+              </td>
+
+              <td>{{ r["req_type"] }}</td>
+              <td class="fw-semibold">{{ r["title"] }}</td>
+
+              <td>
+                {% set s = r["status"] %}
+                {% if s == "review" %}
+                  <span class="badge badge-soft badge-review">На рассмотрении</span>
+                {% elif s == "accepted" %}
+                  <span class="badge badge-soft badge-accepted">Просмотрено</span>
+                {% elif s == "returned" %}
+                  <span class="badge badge-soft badge-returned">Отклонено</span>
+                {% else %}
+                  <span class="badge badge-soft">Неизвестно</span>
+                {% endif %}
+              </td>
+
+              <td class="text-muted small">{{ (r["created_at"] ~ "")[:10] }}</td>
+
+              <td class="text-end pe-4">
+                <!-- ВАЖНО: именно panel_request_view -->
+                <a class="btn btn-sm btn-outline-premium"
+                   href="{{ url_for('panel_request_view', req_id=r['id']) }}">
+                  Открыть
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-5 text-center">
+        <div class="h5 mb-2">Заявок пока нет</div>
+        <div class="text-muted">Когда студент отправит заявку, она появится здесь.</div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
 </div>
 {% endblock %}
