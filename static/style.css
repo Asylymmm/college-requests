@@ -449,3 +449,40 @@ body{
   font-size: 28px;
   border: 1px solid rgba(255,255,255,0.22);
 }
+
+/* FIX: premium buttons should not "turn white" on click */
+.btn-primary-premium{
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff !important;
+  border: 0 !important;
+  background: linear-gradient(180deg, var(--brand) 0%, #2447f0 100%) !important;
+  box-shadow: 0 18px 34px rgba(36,71,240,0.22);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.btn-primary-premium:hover{
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 22px 44px rgba(36,71,240,0.28);
+}
+.btn-primary-premium:active,
+.btn-primary-premium:focus,
+.btn-primary-premium:focus-visible{
+  background: linear-gradient(180deg, var(--brand) 0%, #2447f0 100%) !important;
+  color: #fff !important;
+  transform: translateY(0px) scale(0.995);
+  box-shadow: 0 0 0 6px rgba(47,49,141,0.18), 0 22px 44px rgba(36,71,240,0.26) !important;
+  outline: none !important;
+}
+
+/* (опционально) если у тебя есть btn-outline-premium */
+.btn-outline-premium:active,
+.btn-outline-premium:focus,
+.btn-outline-premium:focus-visible{
+  background: rgba(47,49,141,0.06) !important;
+  color: var(--ink) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 6px rgba(47,49,141,0.12) !important;
+}

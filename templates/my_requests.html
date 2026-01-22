@@ -44,15 +44,15 @@
               <td>
                 {% set s = r["status"] %}
                 {% if s == "review" %}
-                  <span class="badge badge-soft badge-review">review</span>
+                  <span class="badge badge-soft badge-review">На расмотрении</span>
                 {% elif s == "accepted" %}
-                  <span class="badge badge-soft badge-accepted">accepted</span>
+                  <span class="badge badge-soft badge-accepted">Одобрено</span>
                 {% else %}
-                  <span class="badge badge-soft badge-returned">returned</span>
+                  <span class="badge badge-soft badge-returned">Отклонено</span>
                 {% endif %}
               </td>
 
-              <td class="text-muted small">{{ r["created_at"] }}</td>
+              <td class="text-muted small">{{ (r["created_at"] ~ "")[:10] }}</td>
 
               <td class="text-end pe-4">
                 <form method="POST" action="{{ url_for('delete_request', req_id=r['id']) }}"
