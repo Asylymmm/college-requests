@@ -3,84 +3,24 @@
 
 {% block content %}
 <div class="container py-4">
-
-  <!-- Верхняя панель -->
-  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
     <div>
       <div class="text-white-50 small">Личный кабинет</div>
       <h2 class="text-white m-0">Сотрудник: {{ full_name }}</h2>
     </div>
 
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2">
       <a class="btn btn-glass" href="{{ url_for('panel_requests') }}">
-        <i class="bi bi-inbox"></i> Все заявки
+        <i class="bi bi-list-check"></i> Все заявки
       </a>
-
-      {% if session.get("role") == "admin" %}
-        <a class="btn btn-light-soft" href="{{ url_for('admin_staff_approvals') }}">
-          <i class="bi bi-person-check"></i> Подтверждение сотрудников
-        </a>
-      {% endif %}
     </div>
   </div>
 
-  <!-- Карточки -->
-  <div class="row g-3">
-    <div class="col-12 col-lg-8">
-      <div class="card card-premium">
-        <div class="card-body p-4">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <div>
-              <div class="text-muted small">Рабочая панель</div>
-              <div class="h5 mb-0 fw-bold">Проверка и обработка заявок</div>
-            </div>
-            <div class="icon-badge">
-              <i class="bi bi-clipboard-check"></i>
-            </div>
-          </div>
-
-          <div class="text-muted mb-4">
-            Откройте список заявок, проверьте данные студента и измените статус.
-          </div>
-
-          <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-primary-premium" href="{{ url_for('panel_requests') }}">
-              <i class="bi bi-list-check"></i> Открыть заявки
-            </a>
-
-            {% if session.get("role") == "admin" %}
-              <a class="btn btn-outline-premium" href="{{ url_for('admin_staff_approvals') }}">
-                <i class="bi bi-shield-check"></i> Заявки сотрудников
-              </a>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-lg-4">
-      <div class="card card-premium">
-        <div class="card-body p-4">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <div>
-              <div class="text-muted small">Подсказка</div>
-              <div class="h6 mb-0 fw-bold">Как быстро обработать заявку</div>
-            </div>
-            <div class="icon-badge">
-              <i class="bi bi-info-circle"></i>
-            </div>
-          </div>
-
-          <ul class="list-unstyled m-0 text-muted">
-            <li class="mb-2">• Проверь тип и тему</li>
-            <li class="mb-2">• Прочитай текст заявки</li>
-            <li class="mb-2">• Поставь статус</li>
-            <li class="mb-0">• При необходимости — уточни у студента</li>
-          </ul>
-        </div>
-      </div>
+  <div class="card card-premium">
+    <div class="card-body p-4">
+      <div class="h5 mb-2">Рабочая панель</div>
+      <div class="text-muted">Открывай заявки и меняй статус. Управление сотрудниками доступно только администратору.</div>
     </div>
   </div>
-
 </div>
 {% endblock %}

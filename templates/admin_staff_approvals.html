@@ -4,7 +4,7 @@
 <div class="container py-4">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h3 class="m-0">Подтверждение сотрудников</h3>
-    <a class="btn btn-outline-secondary" href="{{ url_for('panel_requests') }}">← Назад к заявкам</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('admin_dashboard') }}">← Назад</a>
   </div>
 
   <div class="card shadow-sm">
@@ -35,9 +35,24 @@
               <form method="post" action="{{ url_for('admin_staff_approve', user_id=u.id) }}" class="d-inline">
                 <button class="btn btn-sm btn-success">Одобрить</button>
               </form>
-              <form method="post" action="{{ url_for('admin_staff_reject', user_id=u.id) }}" class="d-inline ms-2">
+              <form method="post" action="{{ url_for('admin_staff_reject', user_id=u.id) }}"
+                  class="d-inline ms-2"
+                  onsubmit="return confirmRejectWithCode(this);">
+                <input type="hidden" name="confirm_code" value="">
                 <button class="btn btn-sm btn-outline-danger">Отклонить</button>
               </form>
+
+              <script>
+              function confirmRejectWithCode(formEl){
+                const ok = confirm("Отклонить и удалить сотрудника? Действие необратимо.");
+                if(!ok) return false;
+                const code = prompt("Введите код подтверждения:");
+                if(!code) return false;
+                formEl.querySelector('input[name="confirm_code"]').value = code.trim();
+                return true;
+              }
+              </script>
+
               {% else %}
                 <span class="text-muted small">—</span>
               {% endif %}

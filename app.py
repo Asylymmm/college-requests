@@ -141,6 +141,8 @@ def find_user(email, password):
 ADMIN_EMAIL = "shingissuleymen@gmail.com"
 ADMIN_PASSWORD = "Asylym_0309"
 ADMIN_FULLNAME = "Сулеймен Шынгысхан"
+ADMIN_DELETE_CODE = "0309"
+
 
 def ensure_admin_exists():
     conn = get_db()
@@ -214,7 +216,7 @@ def ensure_test_users():
 
 @app.route("/panel/requests")
 @login_required
-@role_required("staff", "admin")
+@role_required("staff")
 def panel_requests():
     conn = get_db()
     cur = conn.cursor()
@@ -231,7 +233,7 @@ def panel_requests():
 
 @app.route("/panel/request/<int:req_id>/status/<status>", methods=["POST"])
 @login_required
-@role_required("staff", "admin")
+@role_required("staff" , "admin")
 def panel_request_set_status(req_id, status):
     if status not in ("review", "accepted", "returned"):
         return "Неверный статус"
@@ -247,27 +249,6 @@ def panel_request_set_status(req_id, status):
     conn.close()
     return redirect(url_for("panel_requests"))
 
-@app.route("/panel/request/<int:req_id>")
-@login_required
-@role_required("staff", "admin")
-def panel_request_view(req_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT r.*, u.full_name, u.email
-        FROM requests r
-        JOIN users u ON u.id = r.user_id
-        WHERE r.id = ?
-    """, (req_id,))
-    r = cur.fetchone()
-    conn.close()
-
-    if not r:
-        return "Заявка не найдена"
-
-    # ВАЖНО: имя файла ТОЧНО как в templates
-    return render_template("panel_request_view.html", r=r)
-
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -277,9 +258,12 @@ def dashboard():
     role = session.get("role")
     if role == "student":
         return redirect(url_for("student_dashboard"))
-    if role in ("staff", "admin"):
+    if role == "staff":
         return redirect(url_for("staff_dashboard"))
+    if role == "admin":
+        return redirect(url_for("admin_dashboard"))
     return redirect(url_for("home"))
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -299,23 +283,141 @@ def login():
 
             if user["role"] == "student":
                 return redirect(url_for("student_dashboard"))
-            else:
-                # staff и admin
-                return redirect(url_for("panel_requests"))
+            if user["role"] == "admin":
+                return redirect(url_for("admin_dashboard"))
+            return redirect(url_for("staff_dashboard"))
         else:
             return "Ошибка: неверный email или пароль"
 
     return render_template("login.html")
+
+# =========================
+# Главный админ (admin)
+# =========================
+
+@app.route("/admin")
+@login_required
+@role_required("admin")
+def admin_root():
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/dashboard")
+@login_required
+@role_required("admin")
+def admin_dashboard():
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='student'")
+    students_count = cur.fetchone()["c"]
+
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='staff'")
+    staff_count = cur.fetchone()["c"]
+
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='staff' AND approved=0")
+    staff_pending = cur.fetchone()["c"]
+
+    cur.execute("SELECT COUNT(*) AS c FROM requests")
+    requests_count = cur.fetchone()["c"]
+
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        students_count=students_count,
+        staff_count=staff_count,
+        staff_pending=staff_pending,
+        requests_count=requests_count,
+        full_name=session.get("full_name", "Неизвестно"),
+    )
+
+@app.route("/admin/users")
+@login_required
+@role_required("admin")
+def admin_users():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, full_name, email, role, approved
+        FROM users
+        ORDER BY role DESC, approved ASC, id DESC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return render_template("admin_users.html", rows=rows)
+
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
+@login_required
+@role_required("admin")
+def admin_user_delete(user_id):
+    confirm_code = request.form.get("confirm_code", "").strip()
+    if confirm_code != ADMIN_DELETE_CODE:
+        return "Неверный код подтверждения"
+
+    if int(session.get("user_id", 0)) == int(user_id):
+        return "Нельзя удалить текущего пользователя"
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM requests WHERE user_id=?", (user_id,))
+    cur.execute("DELETE FROM users WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/requests")
+@login_required
+@role_required("admin")
+def admin_requests():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT r.id, r.req_type, r.title, r.status, r.created_at,
+               u.full_name, u.email, u.role as user_role
+        FROM requests r
+        JOIN users u ON u.id = r.user_id
+        ORDER BY r.id DESC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return render_template("admin_requests.html", rows=rows)
+
+
+@app.route("/admin/request/<int:req_id>")
+@login_required
+@role_required("admin")
+def admin_request_view_page(req_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT r.*, u.full_name, u.email
+        FROM requests r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.id=?
+    """, (req_id,))
+    r = cur.fetchone()
+    conn.close()
+
+    if not r:
+        return "Заявка не найдена"
+
+    return render_template("admin_request_view.html", r=r)
+
 
 @app.route("/student")
 def student_dashboard():
     return render_template("student.html", full_name=session.get("full_name", "Неизвестно"))
 
 @app.route("/staff")
+@login_required
+@role_required("staff")
 def staff_dashboard():
     return render_template("staff.html", full_name=session.get("full_name", "Неизвестно"))
 
 from datetime import datetime
+
 
 @app.route("/request/new", methods=["GET", "POST"])
 def new_request():
@@ -384,24 +486,6 @@ def delete_request(req_id):
     # 3) ВСЕГДА возвращаем ответ
     return redirect(url_for("my_requests"))
 
-@app.route("/admin/requests")
-def admin_requests():
-    if session.get("role") != "staff":
-        return redirect(url_for("login"))
-
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT r.id, r.req_type, r.title, r.status, r.created_at, u.full_name
-        FROM requests r
-        JOIN users u ON u.id = r.user_id
-        ORDER BY r.id DESC
-    """)
-    rows = cur.fetchall()
-    conn.close()
-
-    return render_template("admin_requests.html", rows=rows)
-
 @app.route("/admin/staff-approvals")
 @login_required
 @role_required("admin")
@@ -433,45 +517,45 @@ def admin_staff_approve(user_id):
 @login_required
 @role_required("admin")
 def admin_staff_reject(user_id):
+    confirm_code = request.form.get("confirm_code", "").strip()
+    if confirm_code != ADMIN_DELETE_CODE:
+        return "Неверный код подтверждения"
+
     conn = get_db()
     cur = conn.cursor()
-    # вариант 1: удалить
     cur.execute("DELETE FROM users WHERE id=? AND role='staff'", (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_staff_approvals"))
 
 
-@app.route("/admin/request/<int:req_id>")
-def admin_request_view(req_id):
-    if session.get("role") != "staff":
-        return redirect(url_for("login"))
-
+@app.route("/panel/request/<int:req_id>")
+@login_required
+@role_required("staff")
+def panel_request_view(req_id):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT r.id, r.req_type, r.title, r.body_text, r.status, r.created_at, u.full_name
+        SELECT r.*, u.full_name, u.email
         FROM requests r
         JOIN users u ON u.id = r.user_id
-        WHERE r.id = ?
+        WHERE r.id=?
     """, (req_id,))
     r = cur.fetchone()
     conn.close()
 
     if not r:
-        return "Заявление не найдено"
+        return "Заявка не найдена"
 
     return render_template("panel_request_view.html", r=r)
 
 @app.route("/admin/request/<int:req_id>/status/<status>", methods=["POST"])
+@login_required
+@role_required("admin")
 def admin_request_set_status(req_id, status):
-    if session.get("role") != "staff":
-        return redirect(url_for("login"))
-
     if status not in ("review", "accepted", "returned"):
         return "Неверный статус"
 
-    from datetime import datetime
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -482,7 +566,8 @@ def admin_request_set_status(req_id, status):
     conn.commit()
     conn.close()
 
-    return redirect(url_for("admin_request_view", req_id=req_id))
+    return redirect(url_for("admin_requests"))
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():

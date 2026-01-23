@@ -11,15 +11,10 @@
     </div>
 
     <div class="d-flex gap-2 flex-wrap">
-      <a class="btn btn-glass" href="{{ url_for('staff_dashboard') }}">
+      <a class="btn btn-light-soft"
+          href="{% if session.get('role') == 'admin' %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('staff_dashboard') }}{% endif %}">
         <i class="bi bi-arrow-left"></i> В кабинет
       </a>
-
-      {% if session.get("role") == "admin" %}
-        <a class="btn btn-light-soft" href="{{ url_for('admin_staff_approvals') }}">
-          <i class="bi bi-person-check"></i> Подтверждение сотрудников
-        </a>
-      {% endif %}
     </div>
   </div>
 

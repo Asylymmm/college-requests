@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Админ — Пользователи{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
+    <div>
+      <div class="text-white-50 small">Главный админ</div>
+      <h2 class="text-white m-0">Пользователи</h2>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-glass" href="{{ url_for('admin_dashboard') }}"><i class="bi bi-speedometer2"></i> Назад</a>
+      <a class="btn btn-light-soft" href="{{ url_for('admin_requests') }}"><i class="bi bi-inbox"></i> Все заявки</a>
+      <a class="btn btn-light-soft" href="{{ url_for('admin_staff_approvals') }}"><i class="bi bi-person-check"></i> Подтверждение сотрудников</a>
+    </div>
+  </div>
+
+  <div class="card card-premium">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-premium mb-0 align-middle">
+          <thead>
+            <tr>
+              <th class="ps-4">ID</th><th>ФИО</th><th>Email</th><th>Роль</th><th>Статус</th>
+              <th class="text-end pe-4">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in rows %}
+            <tr>
+              <td class="ps-4">#{{ u["id"] }}</td>
+              <td class="fw-semibold">{{ u["full_name"] }}</td>
+              <td class="text-muted">{{ u["email"] }}</td>
+              <td>
+                {% if u["role"] == "admin" %}
+                  <span class="badge badge-soft badge-review">Админ</span>
+                {% elif u["role"] == "staff" %}
+                  <span class="badge badge-soft badge-accepted">Сотрудник</span>
+                {% else %}
+                  <span class="badge badge-soft badge-review">Студент</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if u["role"] == "staff" and u["approved"] != 1 %}
+                  <span class="badge badge-soft badge-returned">Ожидает подтверждения</span>
+                {% else %}
+                  <span class="text-muted small">Активен</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-4">
+                {% if u["role"] != "admin" %}
+                <form method="POST" action="{{ url_for('admin_user_delete', user_id=u['id']) }}"
+                      class="d-inline"
+                      onsubmit="return confirmDeleteWithCode(this);">
+                  <input type="hidden" name="confirm_code" value="">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Удалить</button>
+                </form>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function confirmDeleteWithCode(formEl){
+  const ok = confirm("Удалить пользователя? Это удалит также его заявки.");
+  if(!ok) return false;
+  const code = prompt("Введите код подтверждения:");
+  if(!code) return false;
+  formEl.querySelector('input[name="confirm_code"]').value = code.trim();
+  return true;
+}
+</script>
+{% endblock %}

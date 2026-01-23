@@ -1,65 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Заявления{% endblock %}
+{% block title %}Админ — Все заявки{% endblock %}
 {% block content %}
-
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <title>Все заявления</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-
-<div class="container py-5">
-  <div class="bg-white p-4 rounded shadow-sm">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h4 m-0">Все заявления</h1>
-      <a class="btn btn-secondary btn-sm" href="/staff">Назад</a>
+<div class="container py-4">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
+    <div>
+      <div class="text-white-50 small">Главный админ</div>
+      <h2 class="text-white m-0">Все заявки</h2>
     </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-glass" href="{{ url_for('admin_dashboard') }}"><i class="bi bi-speedometer2"></i> Назад</a>
+      <a class="btn btn-light-soft" href="{{ url_for('admin_users') }}"><i class="bi bi-people"></i> Пользователи</a>
+    </div>
+  </div>
 
-    {% if rows %}
+  <div class="card card-premium">
+    <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-nover align-middle">
+        <table class="table table-premium mb-0 align-middle">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Студент</th>
-              <th>Тип</th>
-              <th>Заголовок</th>
-              <th>Статус</th>
-              <th>Дата</th>
-              <th></th>
+              <th class="ps-4">ID</th><th>Студент</th><th>Тип</th><th>Тема</th><th>Статус</th><th>Дата</th>
+              <th class="text-end pe-4"></th>
             </tr>
           </thead>
           <tbody>
             {% for r in rows %}
             <tr>
-              <td>{{ r["id"] }}</td>
-              <td>{{ r["full_name"] }}</td>
-              <td>{{ r["req_type"] }}</td>
-              <td>{{ r["title"] }}</td>
+              <td class="ps-4">#{{ r["id"] }}</td>
               <td>
-                {% if r["status"] == "review" %}На рассмотрении{% endif %}
-                {% if r["status"] == "accepted" %}Принято{% endif %}
-                {% if r["status"] == "returned" %}Возвращено{% endif %}
+                <div class="fw-semibold">{{ r["full_name"] }}</div>
+                <div class="text-muted small">{{ r["email"] }}</div>
               </td>
-              <td>{{ r["created_at"][:10] }}</td>
+              <td>{{ r["req_type"] }}</td>
+              <td class="fw-semibold">{{ r["title"] }}</td>
               <td>
-                <a class="btn btn-sm btn-outline-primary" href="/admin/request/{{ r['id'] }}">Открыть</a>
+                {% if r["status"] == "review" %}
+                  <span class="badge badge-soft badge-review">На рассмотрении</span>
+                {% elif r["status"] == "accepted" %}
+                  <span class="badge badge-soft badge-accepted">Просмотрено</span>
+                {% else %}
+                  <span class="badge badge-soft badge-returned">Отклонено</span>
+                {% endif %}
+              </td>
+              <td class="text-muted small">{{ (r["created_at"] ~ "")[:10] }}</td>
+              <td class="text-end pe-4">
+                <a class="btn btn-sm btn-outline-primary" 
+                    href="{{ url_for('admin_request_view_page', req_id=r['id']) }}">
+                  Открыть</a>
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    {% else %}
-      <div class="alert alert-secondary">Пока нет заявлений.</div>
-    {% endif %}
+    </div>
   </div>
 </div>
-
-</body>
-</html>
-
 {% endblock %}
