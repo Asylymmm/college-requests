@@ -477,7 +477,7 @@ def delete_request(req_id):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM requests WHERE id=? AND user_id=?",
+        "DELETE FROM requests WHERE id=? AND user_id=? AND status 'review' ",
         (req_id, session["user_id"])
     )
     conn.commit()
