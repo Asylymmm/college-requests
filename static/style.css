@@ -509,3 +509,21 @@ body{
   padding-top: 14px;
   padding-bottom: 14px;
 }
+
+.avatar-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,.6);
+  transition: .2s;
+}
+
+.avatar-img:hover {
+  transform: scale(1.05);
+}
+
+.avatar-link {
+  display: inline-flex;
+  align-items: center;
+}

@@ -3,6 +3,13 @@ import sqlite3
 from pathlib import Path
 from functools import wraps
 
+from werkzeug.utils import secure_filename
+from uuid import uuid4
+import os
+from datetime import datetime
+import re
+from sqlite3 import IntegrityError
+
 def login_required(f):
     @wraps(f)
     def w(*args, **kwargs):
@@ -32,6 +39,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 STAFF_REGISTER_CODE = os.getenv("STAFF_REGISTER_CODE", "AKS&T-STAFF-2026")
 
+ALLOWED_AVATAR_EXT = {"png", "jpg", "jpeg", "webp"}
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
@@ -74,6 +83,31 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
+
+def normalize_username(v: str) -> str:
+    return (v or "").strip().lower()
+
+def is_valid_username(v: str) -> bool:
+    return bool(USERNAME_RE.match(v))
+
+def migrate_add_username_column():
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("PRAGMA table_info(users)")
+    cols = [c[1] for c in cur.fetchall()]
+
+    if "username" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN username TEXT")
+        conn.commit()
+
+    # уникальный индекс (если ещё не создан)
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+    conn.commit()
+    conn.close()
+
 
 def migrate_users_table_if_needed():
     conn = get_db()
@@ -120,6 +154,35 @@ def migrate_users_table_if_needed():
 
     conn.commit()
     conn.close()
+
+def migrate_add_avatar_column():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(users)")
+    cols = [c[1] for c in cur.fetchall()]
+    if "avatar" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
+        conn.commit()
+    conn.close()
+
+def migrate_add_profile_fields():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(users)")
+    cols = [row[1] for row in cur.fetchall()]
+
+    if "avatar" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
+    if "group_name" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN group_name TEXT")
+    if "birth_year" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN birth_year INTEGER")
+    if "bio" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN bio TEXT")
+
+    conn.commit()
+    conn.close()
+
 
 def find_user(email, password):
     conn = get_db()
@@ -175,6 +238,113 @@ def ensure_admin_exists():
     conn.commit()
     conn.close()
 
+def calc_age(birth_year: int | None) -> int | None:
+    if not birth_year:
+        return None
+    y = datetime.now().year
+    if birth_year < 1900 or birth_year > y:
+        return None
+    return y - birth_year
+
+
+@app.route("/profile")
+@login_required
+@role_required("student", "staff")
+def profile_view():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, full_name, email, role, avatar, group_name, birth_year, bio
+        FROM users
+        WHERE id=?
+    """, (session["user_id"],))
+    u = cur.fetchone()
+    conn.close()
+
+    age = calc_age(u["birth_year"])
+    return render_template("profile.html", u=u, age=age)
+
+
+@app.route("/profile/edit", methods=["GET", "POST"])
+@login_required
+@role_required("student", "staff")
+def profile_edit():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, full_name, email, role, avatar, group_name, birth_year, bio
+        FROM users
+        WHERE id=?
+    """, (session["user_id"],))
+    u = cur.fetchone()
+
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        birth_year_raw = request.form.get("birth_year", "").strip()
+        bio = request.form.get("bio", "").strip()
+        group_name_new = request.form.get("group_name", "").strip()
+
+        # год рождения
+        birth_year = None
+        if birth_year_raw:
+            try:
+                birth_year = int(birth_year_raw)
+            except:
+                birth_year = None
+
+        # группа: выбрать можно только 1 раз
+        group_to_save = u["group_name"]
+        if not u["group_name"] and group_name_new:
+            group_to_save = group_name_new  # только если раньше не было
+
+        # обработка аватара
+        avatar_rel = u["avatar"]
+        f = request.files.get("avatar")
+        if f and f.filename:
+            ext = f.filename.rsplit(".", 1)[-1].lower()
+            if ext in ALLOWED_AVATAR_EXT:
+                filename = secure_filename(f"{uuid4().hex}.{ext}")
+                rel_path = f"uploads/avatars/{filename}"
+                save_path = BASE_DIR / "static" / rel_path
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                f.save(save_path)
+                avatar_rel = rel_path
+            else:
+                conn.close()
+                return "Аватар: разрешены png/jpg/jpeg/webp"
+
+        if not full_name:
+            conn.close()
+            return "Введите ФИО"
+
+        cur.execute("""
+            UPDATE users
+            SET full_name=?, birth_year=?, bio=?, group_name=?, avatar=?
+            WHERE id=?
+        """, (full_name, birth_year, bio, group_to_save, avatar_rel, session["user_id"]))
+        conn.commit()
+        conn.close()
+
+        # обновим session (чтобы сразу отражалось в шапке)
+        session["full_name"] = full_name
+
+        return redirect(url_for("profile_view"))
+
+    conn.close()
+
+    age = calc_age(u["birth_year"])
+    group_locked = bool(u["group_name"])  # если уже есть — блокируем выбор
+    allowed_groups = ["2ВТ-9А2"]          # пока одна группа
+
+    return render_template(
+        "profile_edit.html",
+        u=u,
+        age=age,
+        group_locked=group_locked,
+        allowed_groups=allowed_groups
+    )
+
+
 def ensure_test_users():
     conn = get_db()
     cur = conn.cursor()
@@ -183,14 +353,14 @@ def ensure_test_users():
         {
             "full_name": "Тест Студент",
             "email": "student1",
-            "password": "123456",
+            "password": "1234",
             "role": "student",
             "approved": 1
         },
         {
             "full_name": "Тест Сотрудник",
             "email": "staff1",
-            "password": "123456",
+            "password": "1234",
             "role": "staff",
             "approved": 1
         }
@@ -212,6 +382,7 @@ def ensure_test_users():
 
     conn.commit()
     conn.close()
+
 
 
 @app.route("/panel/requests")
@@ -280,6 +451,7 @@ def login():
             session["user_id"] = user["id"]
             session["full_name"] = user["full_name"]
             session["role"] = user["role"]
+            session["avatar"] = user["avatar"]  # может быть None
 
             if user["role"] == "student":
                 return redirect(url_for("student_dashboard"))
@@ -626,6 +798,9 @@ def logout():
 # ✅ Инициализация для Railway/Gunicorn (когда файл импортируется)
 init_db()
 migrate_users_table_if_needed()
+migrate_add_username_column()
+migrate_add_avatar_column()
+migrate_add_profile_fields()
 ensure_admin_exists()
 ensure_test_users()
 

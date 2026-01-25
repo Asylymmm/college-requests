@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+
+<div class="container py-4" style="max-width: 980px;">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
+    <div>
+      <div class="text-white-50 small">Профиль</div>
+      <h2 class="text-white m-0">{{ u["full_name"] }}</h2>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-glass" href="{{ url_for('dashboard') }}">
+        <i class="bi bi-arrow-left"></i> Назад
+      </a>
+      <a class="btn btn-light-soft" href="{{ url_for('profile_edit') }}">
+        <i class="bi bi-pencil-square"></i> Редактировать
+      </a>
+    </div>
+  </div>
+
+  <div class="card card-premium">
+    <div class="card-body p-4 p-md-5">
+      <div class="d-flex gap-4 flex-column flex-md-row align-items-md-start">
+
+        <div class="text-center">
+          <img
+            src="{{ url_for('static', filename=u['avatar']) if u['avatar'] else url_for('static', filename='avatar-default.png') }}"
+            style="width:120px;height:120px;border-radius:50%;object-fit:cover;"
+            alt="avatar">
+          <div class="text-muted small mt-2">Аватар</div>
+        </div>
+
+        <div class="flex-grow-1">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="text-muted small">Email</div>
+              <div class="fw-semibold">{{ u["email"] }}</div>
+            </div>
+
+            <div class="col-md-3">
+              <div class="text-muted small">Возраст</div>
+              <div class="fw-semibold">
+                {% if age is not none %}{{ age }} лет{% else %}—{% endif %}
+              </div>
+            </div>
+
+            <div class="col-md-3">
+              <div class="text-muted small">Группа</div>
+              <div class="fw-semibold">
+                {{ u["group_name"] if u["group_name"] else "—" }}
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="text-muted small mb-2">Описание</div>
+          <div class="border rounded p-3 bg-light">
+            {{ u["bio"] if u["bio"] else "—" }}
+          </div>
+        </div>
+          <hr>
+
+          <div class="d-flex justify-content-end">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+              <i class="bi bi-box-arrow-right"></i> Выйти
+            </a>
+          </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

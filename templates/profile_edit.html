@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Редактирование профиля{% endblock %}
+{% block content %}
+
+<div class="container py-4" style="max-width: 980px;">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
+    <div>
+      <div class="text-white-50 small">Профиль</div>
+      <h2 class="text-white m-0">Редактирование</h2>
+    </div>
+    <a class="btn btn-glass" href="{{ url_for('profile_view') }}">
+      <i class="bi bi-arrow-left"></i> Назад
+    </a>
+  </div>
+
+  <div class="card card-premium">
+    <div class="card-body p-4 p-md-5">
+      <form method="post" enctype="multipart/form-data">
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">ФИО</label>
+            <input class="form-control" name="full_name" value="{{ u['full_name'] }}" required>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Год рождения</label>
+            <input class="form-control" name="birth_year" type="number" min="1900" max="2100"
+                   value="{{ u['birth_year'] if u['birth_year'] else '' }}">
+            <div class="form-text">
+              Сейчас: {% if age is not none %}{{ age }} лет{% else %}—{% endif %}
+            </div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Группа</label>
+            <select class="form-select" name="group_name" {% if group_locked %}disabled{% endif %}>
+              <option value="">—</option>
+              {% for g in allowed_groups %}
+                <option value="{{ g }}" {% if u['group_name']==g %}selected{% endif %}>{{ g }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              {% if group_locked %}
+                Группа уже выбрана и больше не меняется.
+              {% else %}
+                Можно выбрать только один раз.
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Аватар (png/jpg/webp до 2MB)</label>
+            <input class="form-control" type="file" name="avatar" accept=".png,.jpg,.jpeg,.webp">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Текущий аватар</label><br>
+            <img
+              src="{{ url_for('static', filename=u['avatar']) if u['avatar'] else url_for('static', filename='avatar-default.png') }}"
+              style="width:64px;height:64px;border-radius:50%;object-fit:cover;"
+              alt="avatar">
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label class="form-label">Описание</label>
+          <textarea class="form-control" name="bio" rows="4" placeholder="Коротко о себе...">{{ u['bio'] if u['bio'] else '' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button class="btn btn-primary">
+            <i class="bi bi-check2-circle"></i> Сохранить
+          </button>
+          <a class="btn btn-light-soft" href="{{ url_for('profile_view') }}">Отмена</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
