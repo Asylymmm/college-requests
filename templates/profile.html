@@ -3,11 +3,26 @@
 {% block content %}
 
 <div class="container py-4" style="max-width: 980px;">
-  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-4">
+
+  <!-- HEADER -->
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
     <div>
       <div class="text-white-50 small">Профиль</div>
-      <h2 class="text-white m-0">{{ u["full_name"] }}</h2>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <h2 class="text-white m-0">{{ u["full_name"] }}</h2>
+      </div>
+
+      <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+        <span class="text-white-50">
+          {% if u["username"] %}@{{ u["username"] }}{% else %}<span class="text-white-50">ник не задан</span>{% endif %}
+        </span>
+        {% if u["group_name"] %}
+          <span class="text-white-50">•</span>
+          <span class="text-white-50">{{ u["group_name"] }}</span>
+        {% endif %}
+      </div>
     </div>
+
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-glass" href="{{ url_for('dashboard') }}">
         <i class="bi bi-arrow-left"></i> Назад
@@ -18,57 +33,88 @@
     </div>
   </div>
 
+  <!-- CARD -->
   <div class="card card-premium">
     <div class="card-body p-4 p-md-5">
-      <div class="d-flex gap-4 flex-column flex-md-row align-items-md-start">
 
-        <div class="text-center">
-          <img
-            src="{{ url_for('static', filename=u['avatar']) if u['avatar'] else url_for('static', filename='avatar-default.png') }}"
-            style="width:120px;height:120px;border-radius:50%;object-fit:cover;"
-            alt="avatar">
-          <div class="text-muted small mt-2">Аватар</div>
+      <!-- TOP: avatar + quick info -->
+      <div class="d-flex flex-column flex-md-row gap-4 align-items-md-start">
+
+        <!-- AVATAR -->
+        <div class="text-center" style="min-width: 160px;">
+          <div class="position-relative d-inline-block">
+            <img
+              src="{{ url_for('static', filename=u['avatar']) if u['avatar'] else url_for('static', filename='avatar-default.png') }}"
+              style="width:128px;height:128px;border-radius:50%;object-fit:cover;box-shadow:0 10px 30px rgba(0,0,0,.12);"
+              alt="avatar">
+          </div>
+
+          <div class="mt-3">
+            <div class="fw-semibold">{{ u["full_name"] }}</div>
+            <div class="text-muted small">
+              {% if u["username"] %}@{{ u["username"] }}{% else %}ник не задан{% endif %}
+            </div>
+          </div>
         </div>
 
+        <!-- MAIN INFO -->
         <div class="flex-grow-1">
+
           <div class="row g-3">
             <div class="col-md-6">
-              <div class="text-muted small">Email</div>
+              <div class="text-muted small mb-1">Email</div>
               <div class="fw-semibold">{{ u["email"] }}</div>
             </div>
 
             <div class="col-md-3">
-              <div class="text-muted small">Возраст</div>
+              <div class="text-muted small mb-1">Возраст</div>
               <div class="fw-semibold">
                 {% if age is not none %}{{ age }} лет{% else %}—{% endif %}
               </div>
             </div>
 
             <div class="col-md-3">
-              <div class="text-muted small">Группа</div>
+              <div class="text-muted small mb-1">Роль</div>
+              <div class="fw-semibold">
+                {% if u["role"] == "student" %}Студент{% else %}Сотрудник{% endif %}
+              </div>
+            </div>
+
+            {% if u["role"] == "student" %}
+            <div class="col-md-6">
+              <div class="text-muted small mb-1">Группа</div>
               <div class="fw-semibold">
                 {{ u["group_name"] if u["group_name"] else "—" }}
               </div>
             </div>
+            {% endif %}
           </div>
 
           <hr class="my-4">
 
-          <div class="text-muted small mb-2">Описание</div>
-          <div class="border rounded p-3 bg-light">
+          <!-- BIO -->
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="text-muted small">О себе</div>
+          </div>
+          <div class="border rounded-4 p-3 bg-light">
             {{ u["bio"] if u["bio"] else "—" }}
           </div>
-        </div>
-          <hr>
 
-          <div class="d-flex justify-content-end">
-            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
-              <i class="bi bi-box-arrow-right"></i> Выйти
-            </a>
-          </div>
+        </div>
       </div>
+
+      <hr class="my-4">
+
+      <!-- FOOTER ACTIONS -->
+      <div class="d-flex justify-content-end">
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+          <i class="bi bi-box-arrow-right"></i> Выйти
+        </a>
+      </div>
+
     </div>
   </div>
+
 </div>
 
 {% endblock %}

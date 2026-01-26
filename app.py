@@ -261,12 +261,12 @@ def migrate_profile_fields():
 
 @app.route("/profile")
 @login_required
-@role_required("student", "staff")
+@role_required("student", "staff", "admin")
 def profile_view():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, full_name, email, role, avatar, group_name, birth_date, bio
+        SELECT id, full_name, username, email, role, avatar, group_name, birth_date, bio
         FROM users
         WHERE id=?
     """, (session["user_id"],))
@@ -387,6 +387,8 @@ def profile_edit():
         conn.close()
 
         session["full_name"] = full_name
+        session["avatar"] = avatar_rel   # ✅ важно
+        session["username"] = username_to_save  # если показываешь ник в шапке
         return redirect(url_for("profile_view"))
 
     # GET
