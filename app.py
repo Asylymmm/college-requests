@@ -1,14 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import sqlite3
 from pathlib import Path
 from functools import wraps
 
 from werkzeug.utils import secure_filename
 from uuid import uuid4
 import os
-from datetime import datetime
 import re
-from sqlite3 import IntegrityError
+import psycopg2
+import psycopg2.extras
+from datetime import datetime, date
+
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 def login_required(f):
     @wraps(f)
@@ -17,6 +20,7 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return w
+
 
 def role_required(*roles):
     def deco(f):
@@ -32,10 +36,7 @@ def role_required(*roles):
 
 
 app = Flask(__name__)
-
 app.secret_key = "dev_key_123"
-import os
-from werkzeug.security import generate_password_hash, check_password_hash
 
 STAFF_REGISTER_CODE = os.getenv("STAFF_REGISTER_CODE", "AKS&T-STAFF-2026")
 
@@ -43,152 +44,87 @@ ALLOWED_AVATAR_EXT = {"png", "jpg", "jpeg", "webp"}
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "app.db"
+
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise RuntimeError("DATABASE_URL не задан")
+
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    conn = psycopg2.connect(db_url)
     return conn
+
+@app.route("/_db_check")
+def db_check():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT 1")
+    conn.close()
+    return "Postgres OK"
+
 
 def init_db():
     conn = get_db()
     cur = conn.cursor()
 
-    # 1) USERS (новая схема)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         full_name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
-        role TEXT NOT NULL,              -- student / staff / admin
-        approved INTEGER NOT NULL DEFAULT 1  -- для staff можно будет ставить 0 до подтверждения
+        role TEXT NOT NULL,
+        approved INTEGER NOT NULL DEFAULT 1,
+
+        username TEXT UNIQUE,
+        avatar TEXT,
+        group_name TEXT,
+        birth_date DATE,
+        bio TEXT
     )
     """)
 
-    # 2) REQUESTS (как было)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         req_type TEXT NOT NULL,
         title TEXT NOT NULL,
         body_text TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN ('review','accepted','returned')) DEFAULT 'review',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(id)
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL
     )
     """)
 
     conn.commit()
     conn.close()
 
-USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
 
-def normalize_username(v: str) -> str:
-    return (v or "").strip().lower()
+def calc_age(birth_date_val):
+    # birth_date_val в Postgres row_factory=dict_row обычно будет date или None
+    if not birth_date_val:
+        return None
+    if isinstance(birth_date_val, str):
+        try:
+            b = datetime.strptime(birth_date_val, "%Y-%m-%d").date()
+        except:
+            return None
+    else:
+        b = birth_date_val  # date
 
-def is_valid_username(v: str) -> bool:
-    return bool(USERNAME_RE.match(v))
-
-def migrate_add_username_column():
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("PRAGMA table_info(users)")
-    cols = [c[1] for c in cur.fetchall()]
-
-    if "username" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN username TEXT")
-        conn.commit()
-
-    # уникальный индекс (если ещё не создан)
-    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-    conn.commit()
-    conn.close()
-
-
-def migrate_users_table_if_needed():
-    conn = get_db()
-    cur = conn.cursor()
-
-    # Проверяем структуру таблицы users
-    cur.execute("PRAGMA table_info(users)")
-    cols = [row[1] for row in cur.fetchall()]  # row[1] = name
-
-    # если уже есть email/approved — значит новая структура, ничего не делаем
-    if "email" in cols and "approved" in cols and "role" in cols:
-        conn.close()
-        return
-
-    # Иначе — делаем миграцию: переименуем старую и создадим новую
-    cur.execute("ALTER TABLE users RENAME TO users_old")
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        full_name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('student','staff','admin')) DEFAULT 'student',
-        staff_code TEXT,
-        approved INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL
-    )
-    """)
-
-    # переносим старых пользователей (username кладём в email как есть, чтобы не потерять записи)
-    from datetime import datetime
-    cur.execute("""
-    INSERT INTO users (id, full_name, email, password, role, approved, created_at)
-    SELECT id,
-        full_name,
-        username as email,
-        password,
-        CASE role WHEN 'staff' THEN 'staff' ELSE 'student' END,
-        1,
-        ?
-    FROM users_old
-    """, (datetime.now().isoformat(),))
-
-    conn.commit()
-    conn.close()
-
-def migrate_add_avatar_column():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(users)")
-    cols = [c[1] for c in cur.fetchall()]
-    if "avatar" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
-        conn.commit()
-    conn.close()
-
-def migrate_add_profile_fields():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(users)")
-    cols = [row[1] for row in cur.fetchall()]
-
-    if "avatar" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
-    if "group_name" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN group_name TEXT")
-    if "birth_year" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN birth_year INTEGER")
-    if "bio" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN bio TEXT")
-
-    conn.commit()
-    conn.close()
+    today = date.today()
+    return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
 
 
 def find_user(email, password):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM users WHERE email=?", (email,))
+    cur.execute("SELECT * FROM users WHERE email=%s", (email,))
     user = cur.fetchone()
     conn.close()
 
@@ -214,49 +150,56 @@ def ensure_admin_exists():
     admin_email = ADMIN_EMAIL.strip().lower()
     admin_hash = generate_password_hash(ADMIN_PASSWORD)
 
-    # ищем админа по email (самый надежный ключ)
-    cur.execute("SELECT id FROM users WHERE email=?", (admin_email,))
+    cur.execute("SELECT id FROM users WHERE email=%s", (admin_email,))
     row = cur.fetchone()
 
     if row:
-        # обновляем существующую запись (исправит старый пароль/роль)
         cur.execute("""
             UPDATE users
-            SET full_name=?,
-                password=?,
+            SET full_name=%s,
+                password=%s,
                 role='admin',
                 approved=1
-            WHERE id=?
+            WHERE id=%s
         """, (ADMIN_FULLNAME, admin_hash, row["id"]))
     else:
-        # создаём нового
         cur.execute("""
             INSERT INTO users (full_name, email, password, role, approved)
-            VALUES (?, ?, ?, 'admin', 1)
+            VALUES (%s, %s, %s, 'admin', 1)
         """, (ADMIN_FULLNAME, admin_email, admin_hash))
 
     conn.commit()
     conn.close()
 
-def migrate_profile_fields():
+
+def ensure_test_users():
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("PRAGMA table_info(users)")
-    cols = [r[1] for r in cur.fetchall()]
 
-    if "birth_date" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN birth_date TEXT")
-    if "username" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN username TEXT")
-    if "avatar" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
-    if "group_name" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN group_name TEXT")
-    if "bio" not in cols:
-        cur.execute("ALTER TABLE users ADD COLUMN bio TEXT")
+    users = [
+        {"full_name": "Тест Студент", "email": "student1", "password": "1234", "role": "student", "approved": 1},
+        {"full_name": "Тест Сотрудник", "email": "staff1", "password": "1234", "role": "staff", "approved": 1},
+    ]
+
+    for u in users:
+        cur.execute("SELECT id FROM users WHERE email=%s", (u["email"],))
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO users (full_name, email, password, role, approved)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                u["full_name"],
+                u["email"],
+                generate_password_hash(u["password"]),
+                u["role"],
+                u["approved"]
+            ))
 
     conn.commit()
     conn.close()
+
+
+USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
 
 
 @app.route("/profile")
@@ -268,10 +211,13 @@ def profile_view():
     cur.execute("""
         SELECT id, full_name, username, email, role, avatar, group_name, birth_date, bio
         FROM users
-        WHERE id=?
+        WHERE id=%s
     """, (session["user_id"],))
     u = cur.fetchone()
     conn.close()
+
+    if not u:
+        return "Пользователь не найден"
 
     age = calc_age(u["birth_date"])
     return render_template("profile.html", u=u, age=age)
@@ -281,30 +227,13 @@ def profile_view():
 @login_required
 @role_required("student", "staff")
 def profile_edit():
-    import re
-    from datetime import date, datetime
-    from uuid import uuid4
-    from werkzeug.utils import secure_filename
-
-    USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
-
-    def calc_age_from_birth_date(birth_date_str):
-        if not birth_date_str:
-            return None
-        try:
-            b = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
-        except:
-            return None
-        today = date.today()
-        return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
-
     conn = get_db()
     cur = conn.cursor()
 
     cur.execute("""
         SELECT id, full_name, email, role, username, avatar, group_name, birth_date, bio
         FROM users
-        WHERE id=?
+        WHERE id=%s
     """, (session["user_id"],))
     u = cur.fetchone()
 
@@ -316,13 +245,12 @@ def profile_edit():
         full_name = request.form.get("full_name", "").strip()
         bio = request.form.get("bio", "").strip()
 
-        birth_date = request.form.get("birth_date", "").strip()  # YYYY-MM-DD
-        if birth_date == "":
+        birth_date_raw = request.form.get("birth_date", "").strip()  # YYYY-MM-DD
+        if birth_date_raw == "":
             birth_date = None
         else:
-            # простая проверка даты
             try:
-                datetime.strptime(birth_date, "%Y-%m-%d")
+                birth_date = datetime.strptime(birth_date_raw, "%Y-%m-%d").date()
             except:
                 conn.close()
                 return "Неверная дата рождения"
@@ -346,7 +274,7 @@ def profile_edit():
                 conn.close()
                 return "Ник: 3–20 символов, только a-z, 0-9 и _"
 
-            cur.execute("SELECT id FROM users WHERE username=? AND id<>?", (username_raw, u["id"]))
+            cur.execute("SELECT id FROM users WHERE username=%s AND id<>%s", (username_raw, u["id"]))
             if cur.fetchone():
                 conn.close()
                 return "Этот ник уже занят"
@@ -371,8 +299,8 @@ def profile_edit():
 
         cur.execute("""
             UPDATE users
-            SET full_name=?, birth_date=?, username=?, bio=?, group_name=?, avatar=?
-            WHERE id=?
+            SET full_name=%s, birth_date=%s, username=%s, bio=%s, group_name=%s, avatar=%s
+            WHERE id=%s
         """, (
             full_name,
             birth_date,
@@ -387,8 +315,9 @@ def profile_edit():
         conn.close()
 
         session["full_name"] = full_name
-        session["avatar"] = avatar_rel   # ✅ важно
-        session["username"] = username_to_save  # если показываешь ник в шапке
+        session["avatar"] = avatar_rel
+        session["username"] = username_to_save
+
         return redirect(url_for("profile_view"))
 
     # GET
@@ -408,69 +337,6 @@ def profile_edit():
         allowed_groups=allowed_groups
     )
 
-from datetime import date, datetime
-
-def calc_age(birth_date_str):
-    if not birth_date_str:
-        return None
-    try:
-        b = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return None
-
-    today = date.today()
-    return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
-
-def calc_age_from_birth_date(birth_date_str: str | None):
-    if not birth_date_str:
-        return None
-    try:
-        b = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
-    except:
-        return None
-    today = date.today()
-    age = today.year - b.year - ((today.month, today.day) < (b.month, b.day))
-    return age
-
-def ensure_test_users():
-    conn = get_db()
-    cur = conn.cursor()
-
-    users = [
-        {
-            "full_name": "Тест Студент",
-            "email": "student1",
-            "password": "1234",
-            "role": "student",
-            "approved": 1
-        },
-        {
-            "full_name": "Тест Сотрудник",
-            "email": "staff1",
-            "password": "1234",
-            "role": "staff",
-            "approved": 1
-        }
-    ]
-
-    for u in users:
-        cur.execute("SELECT id FROM users WHERE email=?", (u["email"],))
-        if not cur.fetchone():
-            cur.execute("""
-                INSERT INTO users (full_name, email, password, role, approved)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                u["full_name"],
-                u["email"],
-                generate_password_hash(u["password"]),
-                u["role"],
-                u["approved"]
-            ))
-
-    conn.commit()
-    conn.close()
-
-
 
 @app.route("/panel/requests")
 @login_required
@@ -489,9 +355,10 @@ def panel_requests():
     conn.close()
     return render_template("panel_requests.html", rows=rows)
 
+
 @app.route("/panel/request/<int:req_id>/status/<status>", methods=["POST"])
 @login_required
-@role_required("staff" , "admin")
+@role_required("staff", "admin")
 def panel_request_set_status(req_id, status):
     if status not in ("review", "accepted", "returned"):
         return "Неверный статус"
@@ -500,16 +367,18 @@ def panel_request_set_status(req_id, status):
     cur = conn.cursor()
     cur.execute("""
         UPDATE requests
-        SET status=?, updated_at=?
-        WHERE id=?
-    """, (status, datetime.now().isoformat(), req_id))
+        SET status=%s, updated_at=%s
+        WHERE id=%s
+    """, (status, datetime.now(), req_id))
     conn.commit()
     conn.close()
     return redirect(url_for("panel_requests"))
 
+
 @app.route("/")
 def home():
     return render_template("index.html")
+
 
 @app.route("/dashboard")
 def dashboard():
@@ -531,14 +400,14 @@ def login():
 
         user = find_user(email, password)
         if user:
-            # если staff и ещё не подтверждён
             if user["role"] == "staff" and int(user["approved"]) != 1:
                 return "Доступ сотрудника ожидает подтверждения администратора"
 
             session["user_id"] = user["id"]
             session["full_name"] = user["full_name"]
             session["role"] = user["role"]
-            session["avatar"] = user["avatar"]  # может быть None
+            session["avatar"] = user.get("avatar")
+            session["username"] = user.get("username")
 
             if user["role"] == "student":
                 return redirect(url_for("student_dashboard"))
@@ -550,15 +419,13 @@ def login():
 
     return render_template("login.html")
 
-# =========================
-# Главный админ (admin)
-# =========================
 
 @app.route("/admin")
 @login_required
 @role_required("admin")
 def admin_root():
     return redirect(url_for("admin_dashboard"))
+
 
 @app.route("/admin/dashboard")
 @login_required
@@ -590,6 +457,7 @@ def admin_dashboard():
         full_name=session.get("full_name", "Неизвестно"),
     )
 
+
 @app.route("/admin/users")
 @login_required
 @role_required("admin")
@@ -619,8 +487,7 @@ def admin_user_delete(user_id):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM requests WHERE user_id=?", (user_id,))
-    cur.execute("DELETE FROM users WHERE id=?", (user_id,))
+    cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_users"))
@@ -654,7 +521,7 @@ def admin_request_view_page(req_id):
         SELECT r.*, u.full_name, u.email
         FROM requests r
         JOIN users u ON u.id = r.user_id
-        WHERE r.id=?
+        WHERE r.id=%s
     """, (req_id,))
     r = cur.fetchone()
     conn.close()
@@ -669,13 +536,12 @@ def admin_request_view_page(req_id):
 def student_dashboard():
     return render_template("student.html", full_name=session.get("full_name", "Неизвестно"))
 
+
 @app.route("/staff")
 @login_required
 @role_required("staff")
 def staff_dashboard():
     return render_template("staff.html", full_name=session.get("full_name", "Неизвестно"))
-
-from datetime import datetime
 
 
 @app.route("/request/new", methods=["GET", "POST"])
@@ -692,14 +558,14 @@ def new_request():
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO requests (user_id, req_type, title, body_text, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'review', ?, ?)
+            VALUES (%s, %s, %s, %s, 'review', %s, %s)
         """, (
             session["user_id"],
             req_type,
             title,
             body_text,
-            datetime.now().isoformat(),
-            datetime.now().isoformat()
+            datetime.now(),
+            datetime.now()
         ))
         conn.commit()
         conn.close()
@@ -707,6 +573,7 @@ def new_request():
         return redirect(url_for("student_dashboard"))
 
     return render_template("new_request.html")
+
 
 @app.route("/my-requests")
 def my_requests():
@@ -718,7 +585,7 @@ def my_requests():
     cur.execute("""
         SELECT id, req_type, title, status, created_at
         FROM requests
-        WHERE user_id = ?
+        WHERE user_id = %s
         ORDER BY id DESC
     """, (session["user_id"],))
     rows = cur.fetchall()
@@ -726,24 +593,23 @@ def my_requests():
 
     return render_template("my_requests.html", rows=rows)
 
+
 @app.route("/request/delete/<int:req_id>", methods=["POST"])
 def delete_request(req_id):
-    # 1) проверка что вошел
     if not session.get("user_id"):
         return redirect(url_for("login"))
 
-    # 2) удаляем только свои заявки (безопасно)
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM requests WHERE id=? AND user_id=? AND status='review' ",
+        "DELETE FROM requests WHERE id=%s AND user_id=%s AND status='review'",
         (req_id, session["user_id"])
     )
     conn.commit()
     conn.close()
 
-    # 3) ВСЕГДА возвращаем ответ
     return redirect(url_for("my_requests"))
+
 
 @app.route("/admin/staff-approvals")
 @login_required
@@ -761,16 +627,18 @@ def admin_staff_approvals():
     conn.close()
     return render_template("admin_staff_approvals.html", rows=rows)
 
+
 @app.route("/admin/staff/<int:user_id>/approve", methods=["POST"])
 @login_required
 @role_required("admin")
 def admin_staff_approve(user_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("UPDATE users SET approved=1 WHERE id=? AND role='staff'", (user_id,))
+    cur.execute("UPDATE users SET approved=1 WHERE id=%s AND role='staff'", (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_staff_approvals"))
+
 
 @app.route("/admin/staff/<int:user_id>/reject", methods=["POST"])
 @login_required
@@ -782,7 +650,7 @@ def admin_staff_reject(user_id):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE id=? AND role='staff'", (user_id,))
+    cur.execute("DELETE FROM users WHERE id=%s AND role='staff'", (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_staff_approvals"))
@@ -798,7 +666,7 @@ def panel_request_view(req_id):
         SELECT r.*, u.full_name, u.email
         FROM requests r
         JOIN users u ON u.id = r.user_id
-        WHERE r.id=?
+        WHERE r.id=%s
     """, (req_id,))
     r = cur.fetchone()
     conn.close()
@@ -807,6 +675,7 @@ def panel_request_view(req_id):
         return "Заявка не найдена"
 
     return render_template("panel_request_view.html", r=r)
+
 
 @app.route("/admin/request/<int:req_id>/status/<status>", methods=["POST"])
 @login_required
@@ -819,9 +688,9 @@ def admin_request_set_status(req_id, status):
     cur = conn.cursor()
     cur.execute("""
         UPDATE requests
-        SET status = ?, updated_at = ?
-        WHERE id = ?
-    """, (status, datetime.now().isoformat(), req_id))
+        SET status=%s, updated_at=%s
+        WHERE id=%s
+    """, (status, datetime.now(), req_id))
     conn.commit()
     conn.close()
 
@@ -849,19 +718,16 @@ def register():
         conn = get_db()
         cur = conn.cursor()
 
-        # 🔹 ПРОВЕРКА EMAIL
-        cur.execute("SELECT id FROM users WHERE email=?", (email,))
+        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
         if cur.fetchone():
             conn.close()
             return "Ошибка: такой Gmail уже зарегистрирован"
 
-        # 🔹 APPROVED (РАЗДЕЛ 3)
         approved = 1 if role == "student" else 0
 
-        # 🔹 INSERT
         cur.execute("""
             INSERT INTO users (full_name, email, password, role, approved)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, (
             full_name,
             email,
@@ -874,21 +740,17 @@ def register():
         conn.close()
         return redirect(url_for("login"))
 
-
     return render_template("register.html")
+
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("home"))
 
-# ✅ Инициализация для Railway/Gunicorn (когда файл импортируется)
+
+# ✅ Инициализация (Postgres)
 init_db()
-migrate_users_table_if_needed()
-migrate_profile_fields()
-migrate_add_username_column()
-migrate_add_avatar_column()
-migrate_add_profile_fields()
 ensure_admin_exists()
 ensure_test_users()
 
