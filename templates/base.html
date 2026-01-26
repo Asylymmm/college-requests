@@ -122,15 +122,22 @@
       {% if session.get("full_name") %}
         <div class="d-flex align-items-center gap-3">
           <!-- АВАТАР -->
-          <a href="{{ url_for('profile_view') }}" class="avatar-link">
-            <img 
-              src="{% if session.get('avatar') %}
-                      {{ url_for('static', filename=session.get('avatar')) }}
-                   {% else %}
-                      {{ url_for('static', filename='avatar-default.png') }}
-                   {% endif %}"
-              class="avatar-img"
-              alt="avatar">
+           <a href="{{ url_for('profile_view') }}" class="user-chip">
+            <img
+              src="{{ url_for('static', filename=session.get('avatar')) if session.get('avatar') else url_for('static', filename='avatar-default.png') }}"
+              alt="avatar"
+              class="user-chip__avatar"
+            >
+            <div class="user-chip__info">
+              <div class="user-chip__name">
+                {{ session.get('full_name', 'Пользователь') }}
+              </div>
+                {% if session.get('role') == 'student' %}
+              <div class="user-chip__role">Студент</div>
+                {% elif session.get('role') == 'staff' %}
+              <div class="user-chip__role">Сотрудник</div>
+                {% endif %}
+              </div>
           </a>
       {% else %}
         <a class="btn btn-outline-primary btn-sm" href="/login">Вход</a>

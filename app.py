@@ -238,13 +238,25 @@ def ensure_admin_exists():
     conn.commit()
     conn.close()
 
-def calc_age(birth_year: int | None) -> int | None:
-    if not birth_year:
-        return None
-    y = datetime.now().year
-    if birth_year < 1900 or birth_year > y:
-        return None
-    return y - birth_year
+def migrate_profile_fields():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(users)")
+    cols = [r[1] for r in cur.fetchall()]
+
+    if "birth_date" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN birth_date TEXT")
+    if "username" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN username TEXT")
+    if "avatar" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
+    if "group_name" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN group_name TEXT")
+    if "bio" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN bio TEXT")
+
+    conn.commit()
+    conn.close()
 
 
 @app.route("/profile")
@@ -254,14 +266,14 @@ def profile_view():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, full_name, email, role, avatar, group_name, birth_year, bio
+        SELECT id, full_name, email, role, avatar, group_name, birth_date, bio
         FROM users
         WHERE id=?
     """, (session["user_id"],))
     u = cur.fetchone()
     conn.close()
 
-    age = calc_age(u["birth_year"])
+    age = calc_age(u["birth_date"])
     return render_template("profile.html", u=u, age=age)
 
 
@@ -269,33 +281,77 @@ def profile_view():
 @login_required
 @role_required("student", "staff")
 def profile_edit():
+    import re
+    from datetime import date, datetime
+    from uuid import uuid4
+    from werkzeug.utils import secure_filename
+
+    USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
+
+    def calc_age_from_birth_date(birth_date_str):
+        if not birth_date_str:
+            return None
+        try:
+            b = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
+        except:
+            return None
+        today = date.today()
+        return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+
     conn = get_db()
     cur = conn.cursor()
+
     cur.execute("""
-        SELECT id, full_name, email, role, avatar, group_name, birth_year, bio
+        SELECT id, full_name, email, role, username, avatar, group_name, birth_date, bio
         FROM users
         WHERE id=?
     """, (session["user_id"],))
     u = cur.fetchone()
 
+    if not u:
+        conn.close()
+        return "Пользователь не найден"
+
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
-        birth_year_raw = request.form.get("birth_year", "").strip()
         bio = request.form.get("bio", "").strip()
-        group_name_new = request.form.get("group_name", "").strip()
 
-        # год рождения
-        birth_year = None
-        if birth_year_raw:
+        birth_date = request.form.get("birth_date", "").strip()  # YYYY-MM-DD
+        if birth_date == "":
+            birth_date = None
+        else:
+            # простая проверка даты
             try:
-                birth_year = int(birth_year_raw)
+                datetime.strptime(birth_date, "%Y-%m-%d")
             except:
-                birth_year = None
+                conn.close()
+                return "Неверная дата рождения"
+
+        group_name_new = request.form.get("group_name", "").strip()
+        username_raw = request.form.get("username", "").strip().lower()
+
+        if not full_name:
+            conn.close()
+            return "Введите ФИО"
 
         # группа: выбрать можно только 1 раз
         group_to_save = u["group_name"]
         if not u["group_name"] and group_name_new:
-            group_to_save = group_name_new  # только если раньше не было
+            group_to_save = group_name_new
+
+        # username: выбрать можно только 1 раз + уникальность
+        username_to_save = u["username"]
+        if not u["username"] and username_raw:
+            if not USERNAME_RE.match(username_raw):
+                conn.close()
+                return "Ник: 3–20 символов, только a-z, 0-9 и _"
+
+            cur.execute("SELECT id FROM users WHERE username=? AND id<>?", (username_raw, u["id"]))
+            if cur.fetchone():
+                conn.close()
+                return "Этот ник уже занят"
+
+            username_to_save = username_raw
 
         # обработка аватара
         avatar_rel = u["avatar"]
@@ -313,37 +369,66 @@ def profile_edit():
                 conn.close()
                 return "Аватар: разрешены png/jpg/jpeg/webp"
 
-        if not full_name:
-            conn.close()
-            return "Введите ФИО"
-
         cur.execute("""
             UPDATE users
-            SET full_name=?, birth_year=?, bio=?, group_name=?, avatar=?
+            SET full_name=?, birth_date=?, username=?, bio=?, group_name=?, avatar=?
             WHERE id=?
-        """, (full_name, birth_year, bio, group_to_save, avatar_rel, session["user_id"]))
+        """, (
+            full_name,
+            birth_date,
+            username_to_save,
+            bio,
+            group_to_save,
+            avatar_rel,
+            session["user_id"]
+        ))
+
         conn.commit()
         conn.close()
 
-        # обновим session (чтобы сразу отражалось в шапке)
         session["full_name"] = full_name
-
         return redirect(url_for("profile_view"))
 
+    # GET
     conn.close()
 
-    age = calc_age(u["birth_year"])
-    group_locked = bool(u["group_name"])  # если уже есть — блокируем выбор
-    allowed_groups = ["2ВТ-9А2"]          # пока одна группа
+    age = calc_age(u["birth_date"])
+    group_locked = bool(u["group_name"])
+    username_locked = bool(u["username"])
+    allowed_groups = ["2ВТ-9А2"]
 
     return render_template(
         "profile_edit.html",
         u=u,
         age=age,
         group_locked=group_locked,
+        username_locked=username_locked,
         allowed_groups=allowed_groups
     )
 
+from datetime import date, datetime
+
+def calc_age(birth_date_str):
+    if not birth_date_str:
+        return None
+    try:
+        b = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+    today = date.today()
+    return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+
+def calc_age_from_birth_date(birth_date_str: str | None):
+    if not birth_date_str:
+        return None
+    try:
+        b = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
+    except:
+        return None
+    today = date.today()
+    age = today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+    return age
 
 def ensure_test_users():
     conn = get_db()
@@ -649,7 +734,7 @@ def delete_request(req_id):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM requests WHERE id=? AND user_id=? AND status 'review' ",
+        "DELETE FROM requests WHERE id=? AND user_id=? AND status='review' ",
         (req_id, session["user_id"])
     )
     conn.commit()
@@ -798,6 +883,7 @@ def logout():
 # ✅ Инициализация для Railway/Gunicorn (когда файл импортируется)
 init_db()
 migrate_users_table_if_needed()
+migrate_profile_fields()
 migrate_add_username_column()
 migrate_add_avatar_column()
 migrate_add_profile_fields()
