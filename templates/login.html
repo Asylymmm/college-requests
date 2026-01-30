@@ -30,11 +30,24 @@
       <div class="card-glass">
         <div class="card-title">Авторизация</div>
         <div class="card-note">Введите логин и пароль, выданные администрацией.</div>
+        {% if error %}
+          <div class="alert alert-danger" style="margin-bottom:15px;">
+            {{ error }}
+          </div>
+            {% endif %}
+
 
         <form method="post">
           <!-- ВАЖНО: form-floating решает проблему с лейблами -->
           <div class="form-floating mb-3">
-            <input class="form-control" id="username" name="email" placeholder="Email" required>
+            <input
+              class="form-control"
+              id="username"
+              name="email"
+              placeholder="Email"
+              value="{{ email or '' }}"
+              required
+            >
             <label for="username">Логин</label>
           </div>
 

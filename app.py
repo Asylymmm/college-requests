@@ -411,24 +411,27 @@ def login():
         password = request.form.get("password", "").strip()
 
         user = find_user(email, password)
+
         if user:
             if user["role"] == "staff" and int(user["approved"]) != 1:
-                return "Доступ сотрудника ожидает подтверждения администратора"
+                return render_template("login.html", error="Доступ сотрудника ожидает подтверждения администратора")
 
             session["user_id"] = user["id"]
             session["full_name"] = user["full_name"]
             session["role"] = user["role"]
+
+            # ВАЖНО: для sqlite Row нет .get(), поэтому так:
             session["avatar"] = user["avatar"] if "avatar" in user.keys() else None
             session["username"] = user["username"] if "username" in user.keys() else None
-
 
             if user["role"] == "student":
                 return redirect(url_for("student_dashboard"))
             if user["role"] == "admin":
                 return redirect(url_for("admin_dashboard"))
             return redirect(url_for("staff_dashboard"))
-        else:
-            return "Ошибка: неверный email или пароль"
+
+        # ❗ вот это вместо "return Ошибка..."
+        return render_template("login.html", error="Неверный email или пароль", email=email)
 
     return render_template("login.html")
 
