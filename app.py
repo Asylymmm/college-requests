@@ -45,23 +45,35 @@ app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB
 
 BASE_DIR = Path(__file__).resolve().parent
 
+def sql(q: str) -> str:
+    if os.getenv("DATABASE_URL"):
+        return q.replace("?", "%s")
+    return q
 
 def get_db():
     db_url = os.getenv("DATABASE_URL")
-    if not db_url:
-        raise RuntimeError("DATABASE_URL не задан")
 
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    if db_url:
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    conn = psycopg2.connect(db_url)
+        conn = psycopg2.connect(
+            db_url,
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+        return conn
+
+    import sqlite3
+    conn = sqlite3.connect(BASE_DIR / "app.db")
+    conn.row_factory = sqlite3.Row
     return conn
+
 
 @app.route("/_db_check")
 def db_check():
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT 1")
+    cur.execute(sql("SELECT 1"))
     conn.close()
     return "Postgres OK"
 
@@ -70,7 +82,7 @@ def init_db():
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("""
+    cur.execute(sql("""
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         full_name TEXT NOT NULL,
@@ -85,9 +97,9 @@ def init_db():
         birth_date DATE,
         bio TEXT
     )
-    """)
+    """))
 
-    cur.execute("""
+    cur.execute(sql("""
     CREATE TABLE IF NOT EXISTS requests (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -98,7 +110,7 @@ def init_db():
         created_at TIMESTAMP NOT NULL,
         updated_at TIMESTAMP NOT NULL
     )
-    """)
+    """))
 
     conn.commit()
     conn.close()
@@ -124,7 +136,7 @@ def find_user(email, password):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM users WHERE email=%s", (email,))
+    cur.execute(sql("SELECT * FROM users WHERE email=?"), (email,))
     user = cur.fetchone()
     conn.close()
 
@@ -150,23 +162,23 @@ def ensure_admin_exists():
     admin_email = ADMIN_EMAIL.strip().lower()
     admin_hash = generate_password_hash(ADMIN_PASSWORD)
 
-    cur.execute("SELECT id FROM users WHERE email=%s", (admin_email,))
+    cur.execute(sql("SELECT id FROM users WHERE email=?"), (admin_email,))
     row = cur.fetchone()
 
     if row:
-        cur.execute("""
+        cur.execute(sql("""
             UPDATE users
-            SET full_name=%s,
-                password=%s,
+            SET full_name=?,
+                password=?,
                 role='admin',
                 approved=1
-            WHERE id=%s
-        """, (ADMIN_FULLNAME, admin_hash, row["id"]))
+            WHERE id=?
+        """), (ADMIN_FULLNAME, admin_hash, row["id"]))
     else:
-        cur.execute("""
+        cur.execute(sql("""
             INSERT INTO users (full_name, email, password, role, approved)
-            VALUES (%s, %s, %s, 'admin', 1)
-        """, (ADMIN_FULLNAME, admin_email, admin_hash))
+            VALUES (?, ?, ?, 'admin', 1)
+        """), (ADMIN_FULLNAME, admin_email, admin_hash))
 
     conn.commit()
     conn.close()
@@ -182,12 +194,12 @@ def ensure_test_users():
     ]
 
     for u in users:
-        cur.execute("SELECT id FROM users WHERE email=%s", (u["email"],))
+        cur.execute(sql("SELECT id FROM users WHERE email=?"), (u["email"],))
         if not cur.fetchone():
-            cur.execute("""
+            cur.execute(sql("""
                 INSERT INTO users (full_name, email, password, role, approved)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (
+                VALUES (?, ?, ?, ?, ?)
+            """), (
                 u["full_name"],
                 u["email"],
                 generate_password_hash(u["password"]),
@@ -208,11 +220,11 @@ USERNAME_RE = re.compile(r"^[a-z0-9_]{3,20}$")
 def profile_view():
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(sql("""
         SELECT id, full_name, username, email, role, avatar, group_name, birth_date, bio
         FROM users
-        WHERE id=%s
-    """, (session["user_id"],))
+        WHERE id=?
+    """), (session["user_id"],))
     u = cur.fetchone()
     conn.close()
 
@@ -230,11 +242,11 @@ def profile_edit():
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("""
+    cur.execute(sql("""
         SELECT id, full_name, email, role, username, avatar, group_name, birth_date, bio
         FROM users
-        WHERE id=%s
-    """, (session["user_id"],))
+        WHERE id=?
+    """), (session["user_id"],))
     u = cur.fetchone()
 
     if not u:
@@ -274,7 +286,7 @@ def profile_edit():
                 conn.close()
                 return "Ник: 3–20 символов, только a-z, 0-9 и _"
 
-            cur.execute("SELECT id FROM users WHERE username=%s AND id<>%s", (username_raw, u["id"]))
+            cur.execute(sql("SELECT id FROM users WHERE username=? AND id<>?"), (username_raw, u["id"]))
             if cur.fetchone():
                 conn.close()
                 return "Этот ник уже занят"
@@ -297,11 +309,11 @@ def profile_edit():
                 conn.close()
                 return "Аватар: разрешены png/jpg/jpeg/webp"
 
-        cur.execute("""
+        cur.execute(sql("""
             UPDATE users
-            SET full_name=%s, birth_date=%s, username=%s, bio=%s, group_name=%s, avatar=%s
-            WHERE id=%s
-        """, (
+            SET full_name=?, birth_date=?, username=?, bio=?, group_name=?, avatar=?
+            WHERE id=?
+        """), (
             full_name,
             birth_date,
             username_to_save,
@@ -365,11 +377,11 @@ def panel_request_set_status(req_id, status):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(sql("""
         UPDATE requests
-        SET status=%s, updated_at=%s
-        WHERE id=%s
-    """, (status, datetime.now(), req_id))
+        SET status=?, updated_at=?
+        WHERE id=?
+    """), (status, datetime.now(), req_id))
     conn.commit()
     conn.close()
     return redirect(url_for("panel_requests"))
@@ -406,8 +418,9 @@ def login():
             session["user_id"] = user["id"]
             session["full_name"] = user["full_name"]
             session["role"] = user["role"]
-            session["avatar"] = user.get("avatar")
-            session["username"] = user.get("username")
+            session["avatar"] = user["avatar"] if "avatar" in user.keys() else None
+            session["username"] = user["username"] if "username" in user.keys() else None
+
 
             if user["role"] == "student":
                 return redirect(url_for("student_dashboard"))
@@ -487,7 +500,7 @@ def admin_user_delete(user_id):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+    cur.execute(sql("DELETE FROM users WHERE id=?"), (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_users"))
@@ -517,12 +530,12 @@ def admin_requests():
 def admin_request_view_page(req_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(sql("""
         SELECT r.*, u.full_name, u.email
         FROM requests r
         JOIN users u ON u.id = r.user_id
-        WHERE r.id=%s
-    """, (req_id,))
+        WHERE r.id=?
+    """), (req_id,))
     r = cur.fetchone()
     conn.close()
 
@@ -556,10 +569,10 @@ def new_request():
 
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(sql("""
             INSERT INTO requests (user_id, req_type, title, body_text, status, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, 'review', %s, %s)
-        """, (
+            VALUES (?, ?, ?, ?, 'review', ?, ?)
+        """), (
             session["user_id"],
             req_type,
             title,
@@ -582,12 +595,12 @@ def my_requests():
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(sql("""
         SELECT id, req_type, title, status, created_at
         FROM requests
-        WHERE user_id = %s
+        WHERE user_id = ?
         ORDER BY id DESC
-    """, (session["user_id"],))
+    """), (session["user_id"],))
     rows = cur.fetchall()
     conn.close()
 
@@ -601,8 +614,8 @@ def delete_request(req_id):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM requests WHERE id=%s AND user_id=%s AND status='review'",
+    cur.execute(sql(
+        "DELETE FROM requests WHERE id=? AND user_id=? AND status='review'"),
         (req_id, session["user_id"])
     )
     conn.commit()
@@ -634,7 +647,7 @@ def admin_staff_approvals():
 def admin_staff_approve(user_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("UPDATE users SET approved=1 WHERE id=%s AND role='staff'", (user_id,))
+    cur.execute(sql("UPDATE users SET approved=1 WHERE id=? AND role='staff'"), (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_staff_approvals"))
@@ -650,7 +663,7 @@ def admin_staff_reject(user_id):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE id=%s AND role='staff'", (user_id,))
+    cur.execute(sql("DELETE FROM users WHERE id=? AND role='staff'"), (user_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_staff_approvals"))
@@ -662,12 +675,12 @@ def admin_staff_reject(user_id):
 def panel_request_view(req_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(sql("""
         SELECT r.*, u.full_name, u.email
         FROM requests r
         JOIN users u ON u.id = r.user_id
-        WHERE r.id=%s
-    """, (req_id,))
+        WHERE r.id=?
+    """), (req_id,))
     r = cur.fetchone()
     conn.close()
 
@@ -686,11 +699,11 @@ def admin_request_set_status(req_id, status):
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(sql("""
         UPDATE requests
-        SET status=%s, updated_at=%s
-        WHERE id=%s
-    """, (status, datetime.now(), req_id))
+        SET status=?, updated_at=?
+        WHERE id=?
+    """), (status, datetime.now(), req_id))
     conn.commit()
     conn.close()
 
@@ -718,17 +731,17 @@ def register():
         conn = get_db()
         cur = conn.cursor()
 
-        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+        cur.execute(sql("SELECT id FROM users WHERE email=?"), (email,))
         if cur.fetchone():
             conn.close()
             return "Ошибка: такой Gmail уже зарегистрирован"
 
         approved = 1 if role == "student" else 0
 
-        cur.execute("""
+        cur.execute(sql("""
             INSERT INTO users (full_name, email, password, role, approved)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
+            VALUES (?, ?, ?, ?, ?)
+        """), (
             full_name,
             email,
             generate_password_hash(password),
