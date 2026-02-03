@@ -96,6 +96,10 @@ def init_db():
         group_name TEXT,
         birth_date DATE,
         bio TEXT
+        
+        email_confirmed INTEGER NOT NULL DEFAULT 0,
+        email_code TEXT,
+        email_code_expires TIMESTAMP
     )
     """))
 
@@ -111,6 +115,25 @@ def init_db():
         updated_at TIMESTAMP NOT NULL
     )
     """))
+
+    conn.commit()
+    conn.close()
+
+def migrate_email_confirm():
+    conn = get_db()
+    cur = conn.cursor()
+
+    def add_col(sql_stmt: str):
+        try:
+            cur.execute(sql_stmt)
+        except Exception:
+            # колонка уже есть (или БД не поддерживает такой синтаксис)
+            conn.rollback()
+
+    # добавляем колонки по одной
+    add_col("ALTER TABLE users ADD COLUMN email_confirmed INTEGER NOT NULL DEFAULT 0")
+    add_col("ALTER TABLE users ADD COLUMN email_code TEXT")
+    add_col("ALTER TABLE users ADD COLUMN email_code_expires TIMESTAMP")
 
     conn.commit()
     conn.close()
@@ -767,6 +790,7 @@ def logout():
 
 # ✅ Инициализация (Postgres)
 init_db()
+migrate_email_confirm()
 ensure_admin_exists()
 ensure_test_users()
 
