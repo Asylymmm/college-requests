@@ -12,6 +12,43 @@ from datetime import datetime, date
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import os
+
+def send_email_code(to_email: str, code: str):
+    api_key = os.getenv("SENDGRID_API_KEY")
+    mail_from = os.getenv("MAIL_FROM")
+
+    if not api_key:
+        raise RuntimeError("Нет SENDGRID_API_KEY в переменных окружения")
+    if not mail_from:
+        raise RuntimeError("Нет MAIL_FROM в переменных окружения")
+
+    message = Mail(
+        from_email=mail_from,
+        to_emails=to_email,
+        subject="Код подтверждения",
+        plain_text_content=f"Ваш код подтверждения: {code}"
+    )
+
+    try:
+        sg = SendGridAPIClient(api_key)
+        resp = sg.send(message)
+
+        # ✅ ВОТ ЭТО вставить/оставить (это и есть “последний код”)
+        print("SENDGRID STATUS:", resp.status_code)
+        print("SENDGRID X-MESSAGE-ID:", resp.headers.get("X-Message-Id"))
+        print("SENDGRID BODY:", resp.body)
+
+        return resp.status_code
+
+    except Exception as e:
+        print("SENDGRID ERROR:", str(e))
+        if hasattr(e, "body"):
+            print("SENDGRID ERROR BODY:", e.body)
+        raise
+
 
 def login_required(f):
     @wraps(f)
@@ -95,7 +132,7 @@ def init_db():
         avatar TEXT,
         group_name TEXT,
         birth_date DATE,
-        bio TEXT
+        bio TEXT,
         
         email_confirmed INTEGER NOT NULL DEFAULT 0,
         email_code TEXT,
@@ -123,17 +160,28 @@ def migrate_email_confirm():
     conn = get_db()
     cur = conn.cursor()
 
-    def add_col(sql_stmt: str):
-        try:
-            cur.execute(sql_stmt)
-        except Exception:
-            # колонка уже есть (или БД не поддерживает такой синтаксис)
-            conn.rollback()
+    # Определяем тип БД
+    is_pg = bool(os.getenv("DATABASE_URL"))
 
-    # добавляем колонки по одной
-    add_col("ALTER TABLE users ADD COLUMN email_confirmed INTEGER NOT NULL DEFAULT 0")
-    add_col("ALTER TABLE users ADD COLUMN email_code TEXT")
-    add_col("ALTER TABLE users ADD COLUMN email_code_expires TIMESTAMP")
+    if is_pg:
+        # Postgres: добавляем колонки, если нет
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email_confirmed INTEGER NOT NULL DEFAULT 0
+        """)
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email_confirm_code TEXT
+        """)
+    else:
+        # SQLite: проверяем через PRAGMA table_info
+        cur.execute("PRAGMA table_info(users)")
+        cols = [r[1] for r in cur.fetchall()]  # column name = index 1
+
+        if "email_confirmed" not in cols:
+            cur.execute("ALTER TABLE users ADD COLUMN email_confirmed INTEGER NOT NULL DEFAULT 0")
+        if "email_confirm_code" not in cols:
+            cur.execute("ALTER TABLE users ADD COLUMN email_confirm_code TEXT")
 
     conn.commit()
     conn.close()
