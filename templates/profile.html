@@ -61,6 +61,31 @@
         <div class="flex-grow-1">
 
           <div class="row g-3">
+            {% if u["role"] == "student" %}
+            <div class="col-md-4">
+              <div class="text-muted small mb-1">Email</div>
+              <div class="fw-semibold">{{ u["email"] }}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small mb-1">Группа</div>
+              <div class="fw-semibold">
+                {{ u["group_name"] if u["group_name"] else "—" }}
+              </div>
+            </div>
+
+            <div class="col-md-2">
+              <div class="text-muted small mb-1">Возраст</div>
+              <div class="fw-semibold">
+                {% if age is not none %}{{ age }} лет{% else %}—{% endif %}
+              </div>
+            </div>
+
+            <div class="col-md-2">
+              <div class="text-muted small mb-1">Роль</div>
+              <div class="fw-semibold">Студент</div>
+            </div>
+            {% else %}
             <div class="col-md-6">
               <div class="text-muted small mb-1">Email</div>
               <div class="fw-semibold">{{ u["email"] }}</div>
@@ -75,17 +100,7 @@
 
             <div class="col-md-3">
               <div class="text-muted small mb-1">Роль</div>
-              <div class="fw-semibold">
-                {% if u["role"] == "student" %}Студент{% else %}Сотрудник{% endif %}
-              </div>
-            </div>
-
-            {% if u["role"] == "student" %}
-            <div class="col-md-6">
-              <div class="text-muted small mb-1">Группа</div>
-              <div class="fw-semibold">
-                {{ u["group_name"] if u["group_name"] else "—" }}
-              </div>
+              <div class="fw-semibold">Сотрудник</div>
             </div>
             {% endif %}
           </div>

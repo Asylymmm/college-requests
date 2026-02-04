@@ -24,7 +24,7 @@
             <input class="form-control" name="full_name" value="{{ u['full_name'] }}" required>
           </div>
 
-          <!-- username (можно выбрать 1 раз) -->
+          <!-- username (можно менять раз в 7 дней) -->
           <div class="col-md-3">
             <label class="form-label">Имя пользователя</label>
             <input
@@ -32,13 +32,15 @@
               name="username"
               value="{{ u['username'] if u['username'] else '' }}"
               placeholder="например: suleymenovv"
-              {% if username_locked %}disabled{% endif %}
+              {% if not username_change_allowed %}disabled{% endif %}
             >
             <div class="form-text">
-              {% if username_locked %}
-                Имя уже задано и не меняется.
-              {% else %}
+              {% if not u['username'] %}
                 3–20 символов: a-z, 0-9, _
+              {% elif not username_change_allowed %}
+                Можно изменить через {{ username_wait_days }} дн.
+              {% else %}
+                Можно менять раз в 7 дней.
               {% endif %}
             </div>
           </div>

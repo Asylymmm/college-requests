@@ -55,6 +55,40 @@ def send_email_code(to_email: str, code: str):
         s.send_message(msg)
 
 
+def send_password_reset_code(to_email: str, code: str):
+    """
+    Отправка кода для сброса пароля через SMTP.
+    Использует те же переменные окружения, что и send_email_code.
+    """
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    mail_from = os.getenv("MAIL_FROM")
+
+    if not all([smtp_host, smtp_user, smtp_pass, mail_from]):
+        raise RuntimeError("Нет SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_FROM в переменных окружения")
+
+    msg = EmailMessage()
+    msg["Subject"] = "Код для сброса пароля"
+    msg["From"] = mail_from
+    msg["To"] = to_email
+    msg.set_content(f"Ваш код для сброса пароля: {code}\nКод действует 10 минут.")
+    msg.add_alternative(f"""
+    <div style="font-family:Arial,sans-serif;font-size:16px">
+      <p>Ваш код для сброса пароля:</p>
+      <h2 style="letter-spacing:2px">{code}</h2>
+      <p>Код действует 10 минут.</p>
+    </div>
+    """, subtype="html")
+
+    with smtplib.SMTP(smtp_host, smtp_port) as s:
+        s.ehlo()
+        s.starttls()
+        s.login(smtp_user, smtp_pass)
+        s.send_message(msg)
+
+
 def create_or_replace_email_code(conn, user_id: int, email: str):
     """
     Создаёт/обновляет код подтверждения в таблице email_codes и отправляет письмо.
@@ -153,6 +187,93 @@ def request_email_code(conn, user_id: int, email: str):
     return True, 0
 
 
+def create_password_reset_code(conn, user_id: int, email: str):
+    code = f"{random.randint(100000, 999999)}"
+    code_hash = generate_password_hash(code)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    created_at = datetime.utcnow()
+
+    cur = conn.cursor()
+    cur.execute(sql("DELETE FROM password_reset_codes WHERE user_id=?"), (user_id,))
+    cur.execute(sql("""
+        INSERT INTO password_reset_codes (user_id, code_hash, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+    """), (user_id, code_hash, expires_at, created_at))
+    conn.commit()
+
+    send_password_reset_code(email, code)
+
+
+def get_last_password_reset_time(conn, user_id: int):
+    cur = conn.cursor()
+    cur.execute(sql("""
+        SELECT created_at
+        FROM password_reset_codes
+        WHERE user_id=?
+        ORDER BY created_at DESC
+        LIMIT 1
+    """), (user_id,))
+    row = cur.fetchone()
+    if not row:
+        return None
+
+    created_at = row["created_at"] if hasattr(row, "keys") else row[0]
+    if isinstance(created_at, str):
+        try:
+            created_at = datetime.fromisoformat(created_at)
+        except Exception:
+            return None
+    return created_at
+
+
+def request_password_reset_code(conn, user_id: int, email: str):
+    last_sent_at = get_last_password_reset_time(conn, user_id)
+    if last_sent_at:
+        elapsed = (datetime.utcnow() - last_sent_at).total_seconds()
+        remaining = int(PASSWORD_RESET_COOLDOWN_SECONDS - elapsed)
+        if remaining > 0:
+            return False, remaining
+
+    create_password_reset_code(conn, user_id, email)
+    return True, 0
+
+
+def verify_password_reset_code(conn, user_id: int, code: str) -> bool:
+    cur = conn.cursor()
+    cur.execute(sql("""
+        SELECT code_hash, expires_at
+        FROM password_reset_codes
+        WHERE user_id=?
+        ORDER BY created_at DESC
+        LIMIT 1
+    """), (user_id,))
+    row = cur.fetchone()
+
+    if not row:
+        return False
+
+    code_hash = row["code_hash"] if hasattr(row, "keys") else row[0]
+    expires_at = row["expires_at"] if hasattr(row, "keys") else row[1]
+
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        except Exception:
+            return False
+    elif isinstance(expires_at, (int, float)):
+        expires_at = datetime.utcfromtimestamp(expires_at)
+
+    if datetime.utcnow() > expires_at:
+        return False
+
+    if not check_password_hash(code_hash, code):
+        return False
+
+    cur.execute(sql("DELETE FROM password_reset_codes WHERE user_id=?"), (user_id,))
+    conn.commit()
+    return True
+
+
 def login_required(f):
     @wraps(f)
     def w(*args, **kwargs):
@@ -189,6 +310,7 @@ STAFF_REGISTER_CODE = require_env("STAFF_REGISTER_CODE")
 
 ALLOWED_AVATAR_EXT = {"png", "jpg", "jpeg", "webp"}
 EMAIL_CODE_COOLDOWN_SECONDS = 60
+PASSWORD_RESET_COOLDOWN_SECONDS = 60
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -240,6 +362,7 @@ def init_db():
         approved INTEGER NOT NULL DEFAULT 1,
 
         username TEXT UNIQUE,
+        last_username_change TIMESTAMP,
         avatar TEXT,
         group_name TEXT,
         birth_date DATE,
@@ -266,6 +389,16 @@ def init_db():
 
     cur.execute(sql("""
     CREATE TABLE IF NOT EXISTS email_codes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code_hash TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL
+    )
+    """))
+
+    cur.execute(sql("""
+    CREATE TABLE IF NOT EXISTS password_reset_codes (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         code_hash TEXT NOT NULL,
@@ -333,6 +466,25 @@ def migrate_email_codes():
     conn.close()
 
 
+def migrate_username_change():
+    conn = get_db()
+    cur = conn.cursor()
+
+    is_pg = bool(os.getenv("DATABASE_URL"))
+
+    if is_pg:
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_username_change TIMESTAMP")
+    else:
+        cur.execute("PRAGMA table_info(users)")
+        cols = [r[1] for r in cur.fetchall()]
+
+        if "last_username_change" not in cols:
+            cur.execute("ALTER TABLE users ADD COLUMN last_username_change TIMESTAMP")
+
+    conn.commit()
+    conn.close()
+
+
 def calc_age(birth_date_val):
     # birth_date_val в Postgres row_factory=dict_row обычно будет date или None
     if not birth_date_val:
@@ -347,6 +499,37 @@ def calc_age(birth_date_val):
 
     today = date.today()
     return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+
+
+def parse_db_datetime(val):
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val)
+        except Exception:
+            return None
+    return None
+
+
+def username_change_allowed(username_value, last_change_val):
+    if not username_value:
+        return True, None
+
+    last_change = parse_db_datetime(last_change_val)
+    if not last_change:
+        return True, None
+
+    next_allowed = last_change + timedelta(days=7)
+    now = datetime.utcnow()
+    if now >= next_allowed:
+        return True, None
+
+    remaining_seconds = int((next_allowed - now).total_seconds())
+    remaining_days = (remaining_seconds + 86399) // 86400
+    return False, max(1, remaining_days)
 
 
 def find_user(email, password):
@@ -460,7 +643,7 @@ def profile_edit():
     cur = conn.cursor()
 
     cur.execute(sql("""
-        SELECT id, full_name, email, role, username, avatar, group_name, birth_date, bio
+        SELECT id, full_name, email, role, username, last_username_change, avatar, group_name, birth_date, bio
         FROM users
         WHERE id=?
     """), (session["user_id"],))
@@ -496,9 +679,16 @@ def profile_edit():
         if not u["group_name"] and group_name_new:
             group_to_save = group_name_new
 
-        # username: выбрать можно только 1 раз + уникальность
+        # username: можно менять раз в 7 дней
         username_to_save = u["username"]
-        if not u["username"] and username_raw:
+        last_username_change_to_save = u["last_username_change"] if "last_username_change" in u.keys() else None
+        can_change_username, wait_days = username_change_allowed(username_to_save, last_username_change_to_save)
+
+        if username_raw and username_raw != username_to_save:
+            if not can_change_username:
+                conn.close()
+                return f"Ник можно менять раз в 7 дней. Подождите {wait_days} дн."
+
             if not USERNAME_RE.match(username_raw):
                 conn.close()
                 return "Ник: 3–20 символов, только a-z, 0-9 и _"
@@ -509,6 +699,7 @@ def profile_edit():
                 return "Этот ник уже занят"
 
             username_to_save = username_raw
+            last_username_change_to_save = datetime.utcnow()
 
         # обработка аватара
         avatar_rel = u["avatar"]
@@ -528,12 +719,13 @@ def profile_edit():
 
         cur.execute(sql("""
             UPDATE users
-            SET full_name=?, birth_date=?, username=?, bio=?, group_name=?, avatar=?
+            SET full_name=?, birth_date=?, username=?, last_username_change=?, bio=?, group_name=?, avatar=?
             WHERE id=?
         """), (
             full_name,
             birth_date,
             username_to_save,
+            last_username_change_to_save,
             bio,
             group_to_save,
             avatar_rel,
@@ -554,7 +746,10 @@ def profile_edit():
 
     age = calc_age(u["birth_date"])
     group_locked = bool(u["group_name"])
-    username_locked = bool(u["username"])
+    username_change_allowed_flag, username_wait_days = username_change_allowed(
+        u["username"],
+        u["last_username_change"] if "last_username_change" in u.keys() else None
+    )
     allowed_groups = ["2ВТ-9А2"]
 
     return render_template(
@@ -562,7 +757,8 @@ def profile_edit():
         u=u,
         age=age,
         group_locked=group_locked,
-        username_locked=username_locked,
+        username_change_allowed=username_change_allowed_flag,
+        username_wait_days=username_wait_days,
         allowed_groups=allowed_groups
     )
 
@@ -1052,6 +1248,85 @@ def verify_email():
     return render_template("verify_email.html", email=email_prefill)
 
 
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not email:
+            return render_template("forgot_password.html", error="Введите email")
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(sql("SELECT id FROM users WHERE email=?"), (email,))
+        row = cur.fetchone()
+
+        if not row:
+            conn.close()
+            return render_template("forgot_password.html", info="Если такой email существует, код отправлен.")
+
+        user_id = row["id"] if hasattr(row, "keys") else row[0]
+        try:
+            sent, wait_seconds = request_password_reset_code(conn, user_id, email)
+        except Exception as e:
+            conn.close()
+            return render_template("forgot_password.html", error=f"Не удалось отправить код: {e}")
+
+        conn.close()
+        if sent:
+            return redirect(url_for("reset_password", email=email))
+
+        return render_template(
+            "forgot_password.html",
+            info=f"Код уже отправлен. Подождите {wait_seconds} сек.",
+            wait_seconds=wait_seconds,
+            email=email,
+        )
+
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    email_prefill = request.args.get("email", "").strip().lower()
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        code = request.form.get("code", "").strip()
+        password1 = request.form.get("password1", "").strip()
+        password2 = request.form.get("password2", "").strip()
+
+        if not email:
+            return render_template("reset_password.html", error="Введите email", email=email)
+        if not code:
+            return render_template("reset_password.html", error="Введите код из письма", email=email)
+        if not password1 or not password2:
+            return render_template("reset_password.html", error="Введите новый пароль два раза", email=email)
+        if password1 != password2:
+            return render_template("reset_password.html", error="Пароли не совпадают", email=email)
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(sql("SELECT id FROM users WHERE email=?"), (email,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return render_template("reset_password.html", error="Пользователь не найден", email=email)
+
+        user_id = row["id"] if hasattr(row, "keys") else row[0]
+        ok = verify_password_reset_code(conn, user_id, code)
+        if not ok:
+            conn.close()
+            return render_template("reset_password.html", error="Неверный или просроченный код", email=email)
+
+        cur.execute(sql("UPDATE users SET password=? WHERE id=?"), (generate_password_hash(password1), user_id))
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html", email=email_prefill)
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -1118,6 +1393,7 @@ def logout():
 init_db()
 migrate_email_confirm()
 migrate_email_codes()
+migrate_username_change()
 ensure_admin_exists()
 ensure_test_users()
 
