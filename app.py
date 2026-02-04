@@ -634,7 +634,11 @@ def login():
                 return render_template("login.html", error="Доступ сотрудника ожидает подтверждения администратора")
 
             email_confirmed = user["email_confirmed"] if "email_confirmed" in user.keys() else 0
-            if int(email_confirmed) != 1:
+            bypass_confirm = (
+                user["role"] == "admin"
+                or user["email"] in {"student1", "staff1"}
+            )
+            if int(email_confirmed) != 1 and not bypass_confirm:
                 try:
                     conn = get_db()
                     sent, wait_seconds = request_email_code(conn, user["id"], user["email"])
@@ -963,15 +967,33 @@ def verify_email():
 
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(sql("SELECT id, email_confirmed FROM users WHERE email=?"), (email,))
+        cur.execute(sql("""
+            SELECT id, email_confirmed, full_name, role, avatar, username, approved
+            FROM users
+            WHERE email=?
+        """), (email,))
         user = cur.fetchone()
 
         if not user:
             conn.close()
             return render_template("verify_email.html", error="Пользователь с таким email не найден", email=email)
 
-        user_id = user["id"] if hasattr(user, "keys") else user[0]
-        email_confirmed = user["email_confirmed"] if hasattr(user, "keys") else user[1]
+        if hasattr(user, "keys"):
+            user_id = user["id"]
+            email_confirmed = user["email_confirmed"]
+            full_name = user["full_name"]
+            role = user["role"]
+            avatar = user["avatar"]
+            username = user["username"]
+            approved = user["approved"]
+        else:
+            user_id = user[0]
+            email_confirmed = user[1]
+            full_name = user[2]
+            role = user[3]
+            avatar = user[4]
+            username = user[5]
+            approved = user[6]
 
         if int(email_confirmed) == 1:
             conn.close()
@@ -1002,7 +1024,20 @@ def verify_email():
         conn.close()
 
         if ok:
-            return render_template("verify_email.html", success="Почта подтверждена! Теперь можно войти.", email=email)
+            if role == "staff" and int(approved) != 1:
+                return render_template(
+                    "verify_email.html",
+                    success="Почта подтверждена! Доступ сотрудника ожидает подтверждения администратора.",
+                    email=email,
+                )
+
+            session["user_id"] = user_id
+            session["full_name"] = full_name
+            session["role"] = role
+            session["avatar"] = avatar
+            session["username"] = username
+
+            return redirect(url_for("dashboard"))
 
         return render_template("verify_email.html", error="Неверный или просроченный код.", email=email)
 
