@@ -16,6 +16,10 @@ import smtplib
 from email.message import EmailMessage
 import random
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 def send_email_code(to_email: str, code: str):
     """
     Отправка кода через SMTP.
@@ -171,10 +175,17 @@ def role_required(*roles):
     return deco
 
 
-app = Flask(__name__)
-app.secret_key = "dev_key_123"
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
 
-STAFF_REGISTER_CODE = os.getenv("STAFF_REGISTER_CODE", "AKS&T-STAFF-2026")
+
+app = Flask(__name__)
+app.secret_key = require_env("SECRET_KEY")
+
+STAFF_REGISTER_CODE = require_env("STAFF_REGISTER_CODE")
 
 ALLOWED_AVATAR_EXT = {"png", "jpg", "jpeg", "webp"}
 EMAIL_CODE_COOLDOWN_SECONDS = 60
@@ -355,10 +366,10 @@ def find_user(email, password):
     return user
 
 
-ADMIN_EMAIL = "shingissuleymen@gmail.com"
-ADMIN_PASSWORD = "Asylym_0309"
-ADMIN_FULLNAME = "Сулеймен Шынгысхан"
-ADMIN_DELETE_CODE = "0309"
+ADMIN_EMAIL = require_env("ADMIN_EMAIL")
+ADMIN_PASSWORD = require_env("ADMIN_PASSWORD")
+ADMIN_FULLNAME = require_env("ADMIN_FULLNAME")
+ADMIN_DELETE_CODE = require_env("ADMIN_DELETE_CODE")
 
 
 def ensure_admin_exists():
