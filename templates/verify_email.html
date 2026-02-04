@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Подтверждение почты{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+  <div class="hero-shell">
+    <div class="hero-grid">
+
+      <div>
+        <div class="hero-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Логотип">
+          <div class="fw-bold">Almaty College of Service and Technology</div>
+        </div>
+
+        <h1 class="hero-title">Подтверждение почты</h1>
+        <p class="hero-subtitle">
+          Мы отправили 6-значный код на вашу почту. Введите его ниже, чтобы активировать аккаунт.
+        </p>
+
+        <div class="hero-badges">
+          <span class="badge-soft">Код на email</span>
+          <span class="badge-soft">Действует 10 минут</span>
+          <span class="badge-soft">Безопасное подтверждение</span>
+        </div>
+      </div>
+
+      <div class="card-glass">
+        <div class="card-title">Код подтверждения</div>
+        <div class="card-note">Если письмо не пришло, нажмите «Отправить ещё раз».</div>
+
+        {% if error %}
+          <div class="alert alert-danger" style="margin-bottom:15px;">
+            {{ error }}
+          </div>
+        {% endif %}
+        {% if info %}
+          <div class="alert alert-info" style="margin-bottom:15px;">
+            {{ info }}
+          </div>
+        {% endif %}
+        {% if success %}
+          <div class="alert alert-success" style="margin-bottom:15px;">
+            {{ success }}
+          </div>
+        {% endif %}
+
+        <form method="post">
+          <div class="form-floating mb-3">
+            <input
+              class="form-control"
+              id="email"
+              name="email"
+              placeholder="Email"
+              value="{{ email or '' }}"
+              required
+            >
+            <label for="email">Gmail</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input
+              class="form-control"
+              id="code"
+              name="code"
+              placeholder="Код"
+            >
+            <label for="code">Код из письма</label>
+          </div>
+
+          <button class="btn-premium" type="submit" name="action" value="verify">
+            Подтвердить
+          </button>
+          <button
+            class="btn btn-outline-premium w-100 mt-2"
+            type="submit"
+            name="action"
+            value="resend"
+            {% if wait_seconds and wait_seconds > 0 %}disabled{% endif %}
+          >
+            Отправить код ещё раз
+          </button>
+          {% if wait_seconds and wait_seconds > 0 %}
+            <div class="helper-line">
+              <span>Можно отправить снова через {{ wait_seconds }} сек.</span>
+            </div>
+          {% endif %}
+
+          <div class="helper-line">
+            <span>Уже подтвердили?</span>
+            <a href="/login">Войти</a>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

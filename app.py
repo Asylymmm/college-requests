@@ -8,46 +8,145 @@ import os
 import re
 import psycopg2
 import psycopg2.extras
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
-import os
+import smtplib
+from email.message import EmailMessage
+import random
 
 def send_email_code(to_email: str, code: str):
-    api_key = os.getenv("SENDGRID_API_KEY")
+    """
+    Отправка кода через SMTP.
+    Нужны переменные окружения:
+      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
+    """
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
     mail_from = os.getenv("MAIL_FROM")
 
-    if not api_key:
-        raise RuntimeError("Нет SENDGRID_API_KEY в переменных окружения")
-    if not mail_from:
-        raise RuntimeError("Нет MAIL_FROM в переменных окружения")
+    if not all([smtp_host, smtp_user, smtp_pass, mail_from]):
+        raise RuntimeError("Нет SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_FROM в переменных окружения")
 
-    message = Mail(
-        from_email=mail_from,
-        to_emails=to_email,
-        subject="Код подтверждения",
-        plain_text_content=f"Ваш код подтверждения: {code}"
-    )
+    msg = EmailMessage()
+    msg["Subject"] = "Код подтверждения"
+    msg["From"] = mail_from
+    msg["To"] = to_email
+    msg.set_content(f"Ваш код подтверждения: {code}\nКод действует 10 минут.")
+    msg.add_alternative(f"""
+    <div style="font-family:Arial,sans-serif;font-size:16px">
+      <p>Ваш код подтверждения:</p>
+      <h2 style="letter-spacing:2px">{code}</h2>
+      <p>Код действует 10 минут.</p>
+    </div>
+    """, subtype="html")
 
-    try:
-        sg = SendGridAPIClient(api_key)
-        resp = sg.send(message)
+    with smtplib.SMTP(smtp_host, smtp_port) as s:
+        s.ehlo()
+        s.starttls()
+        s.login(smtp_user, smtp_pass)
+        s.send_message(msg)
 
-        # ✅ ВОТ ЭТО вставить/оставить (это и есть “последний код”)
-        print("SENDGRID STATUS:", resp.status_code)
-        print("SENDGRID X-MESSAGE-ID:", resp.headers.get("X-Message-Id"))
-        print("SENDGRID BODY:", resp.body)
 
-        return resp.status_code
+def create_or_replace_email_code(conn, user_id: int, email: str):
+    """
+    Создаёт/обновляет код подтверждения в таблице email_codes и отправляет письмо.
+    Таблица email_codes должна существовать.
+    """
+    code = f"{random.randint(100000, 999999)}"
+    code_hash = generate_password_hash(code)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    created_at = datetime.utcnow()
 
-    except Exception as e:
-        print("SENDGRID ERROR:", str(e))
-        if hasattr(e, "body"):
-            print("SENDGRID ERROR BODY:", e.body)
-        raise
+    cur = conn.cursor()
+    # Держим один актуальный код на пользователя (работает без UNIQUE)
+    cur.execute(sql("DELETE FROM email_codes WHERE user_id=?"), (user_id,))
+    cur.execute(sql("""
+        INSERT INTO email_codes (user_id, code_hash, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+    """), (user_id, code_hash, expires_at, created_at))
+    conn.commit()
+
+    send_email_code(email, code)
+
+
+def verify_email_code(conn, user_id: int, code: str) -> bool:
+    """
+    Проверяет код. Если верный и не просрочен — ставит users.email_confirmed=1.
+    """
+    cur = conn.cursor()
+    cur.execute(sql("""
+        SELECT code_hash, expires_at
+        FROM email_codes
+        WHERE user_id=?
+        ORDER BY created_at DESC
+        LIMIT 1
+    """), (user_id,))
+    row = cur.fetchone()
+
+    if not row:
+        return False
+
+    # совместимо с RealDictCursor и sqlite Row
+    db_code_hash = row["code_hash"] if hasattr(row, "keys") else row[0]
+    expires_at = row["expires_at"] if hasattr(row, "keys") else row[1]
+
+    # expires_at может быть datetime или строкой
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        except Exception:
+            return False
+    elif isinstance(expires_at, (int, float)):
+        expires_at = datetime.utcfromtimestamp(expires_at)
+
+    if datetime.utcnow() > expires_at:
+        return False
+
+    if not check_password_hash(db_code_hash, code):
+        return False
+
+    cur.execute(sql("UPDATE users SET email_confirmed=1 WHERE id=?"), (user_id,))
+    cur.execute(sql("DELETE FROM email_codes WHERE user_id=?"), (user_id,))
+    conn.commit()
+    return True
+
+
+def get_last_email_code_time(conn, user_id: int):
+    cur = conn.cursor()
+    cur.execute(sql("""
+        SELECT created_at
+        FROM email_codes
+        WHERE user_id=?
+        ORDER BY created_at DESC
+        LIMIT 1
+    """), (user_id,))
+    row = cur.fetchone()
+    if not row:
+        return None
+
+    created_at = row["created_at"] if hasattr(row, "keys") else row[0]
+    if isinstance(created_at, str):
+        try:
+            created_at = datetime.fromisoformat(created_at)
+        except Exception:
+            return None
+    return created_at
+
+
+def request_email_code(conn, user_id: int, email: str):
+    last_sent_at = get_last_email_code_time(conn, user_id)
+    if last_sent_at:
+        elapsed = (datetime.utcnow() - last_sent_at).total_seconds()
+        remaining = int(EMAIL_CODE_COOLDOWN_SECONDS - elapsed)
+        if remaining > 0:
+            return False, remaining
+
+    create_or_replace_email_code(conn, user_id, email)
+    return True, 0
 
 
 def login_required(f):
@@ -78,6 +177,7 @@ app.secret_key = "dev_key_123"
 STAFF_REGISTER_CODE = os.getenv("STAFF_REGISTER_CODE", "AKS&T-STAFF-2026")
 
 ALLOWED_AVATAR_EXT = {"png", "jpg", "jpeg", "webp"}
+EMAIL_CODE_COOLDOWN_SECONDS = 60
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -153,6 +253,16 @@ def init_db():
     )
     """))
 
+    cur.execute(sql("""
+    CREATE TABLE IF NOT EXISTS email_codes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code_hash TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL
+    )
+    """))
+
     conn.commit()
     conn.close()
 
@@ -182,6 +292,31 @@ def migrate_email_confirm():
             cur.execute("ALTER TABLE users ADD COLUMN email_confirmed INTEGER NOT NULL DEFAULT 0")
         if "email_confirm_code" not in cols:
             cur.execute("ALTER TABLE users ADD COLUMN email_confirm_code TEXT")
+
+    conn.commit()
+    conn.close()
+
+
+def migrate_email_codes():
+    conn = get_db()
+    cur = conn.cursor()
+
+    is_pg = bool(os.getenv("DATABASE_URL"))
+
+    if is_pg:
+        cur.execute("ALTER TABLE email_codes ADD COLUMN IF NOT EXISTS code_hash TEXT")
+        cur.execute("ALTER TABLE email_codes ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
+        cur.execute("ALTER TABLE email_codes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP")
+    else:
+        cur.execute("PRAGMA table_info(email_codes)")
+        cols = [r[1] for r in cur.fetchall()]
+
+        if "code_hash" not in cols:
+            cur.execute("ALTER TABLE email_codes ADD COLUMN code_hash TEXT")
+        if "expires_at" not in cols:
+            cur.execute("ALTER TABLE email_codes ADD COLUMN expires_at TIMESTAMP")
+        if "created_at" not in cols:
+            cur.execute("ALTER TABLE email_codes ADD COLUMN created_at TIMESTAMP")
 
     conn.commit()
     conn.close()
@@ -487,6 +622,23 @@ def login():
             if user["role"] == "staff" and int(user["approved"]) != 1:
                 return render_template("login.html", error="Доступ сотрудника ожидает подтверждения администратора")
 
+            email_confirmed = user["email_confirmed"] if "email_confirmed" in user.keys() else 0
+            if int(email_confirmed) != 1:
+                try:
+                    conn = get_db()
+                    sent, wait_seconds = request_email_code(conn, user["id"], user["email"])
+                except Exception as e:
+                    return render_template("login.html", error=f"Не удалось отправить код подтверждения: {e}", email=email)
+                finally:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+
+                if sent:
+                    return redirect(url_for("verify_email", email=email))
+                return redirect(url_for("verify_email", email=email, wait=wait_seconds))
+
             session["user_id"] = user["id"]
             session["full_name"] = user["full_name"]
             session["role"] = user["role"]
@@ -784,6 +936,76 @@ def admin_request_set_status(req_id, status):
     return redirect(url_for("admin_requests"))
 
 
+@app.route("/verify-email", methods=["GET", "POST"])
+def verify_email():
+    email_prefill = request.args.get("email", "").strip().lower()
+    wait_param = request.args.get("wait", "").strip()
+    wait_seconds = int(wait_param) if wait_param.isdigit() else 0
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        code = request.form.get("code", "").strip()
+        action = request.form.get("action", "verify")
+
+        if not email:
+            return render_template("verify_email.html", error="Введите email", email=email)
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(sql("SELECT id, email_confirmed FROM users WHERE email=?"), (email,))
+        user = cur.fetchone()
+
+        if not user:
+            conn.close()
+            return render_template("verify_email.html", error="Пользователь с таким email не найден", email=email)
+
+        user_id = user["id"] if hasattr(user, "keys") else user[0]
+        email_confirmed = user["email_confirmed"] if hasattr(user, "keys") else user[1]
+
+        if int(email_confirmed) == 1:
+            conn.close()
+            return render_template("verify_email.html", success="Почта уже подтверждена. Теперь можно войти.", email=email)
+
+        if action == "resend":
+            try:
+                sent, wait_seconds = request_email_code(conn, user_id, email)
+            except Exception as e:
+                conn.close()
+                return render_template("verify_email.html", error=f"Не удалось отправить код: {e}", email=email)
+
+            conn.close()
+            if sent:
+                return render_template("verify_email.html", info="Код отправлен повторно.", email=email)
+            return render_template(
+                "verify_email.html",
+                info=f"Код уже отправлен. Подождите {wait_seconds} сек.",
+                email=email,
+                wait_seconds=wait_seconds,
+            )
+
+        if not code:
+            conn.close()
+            return render_template("verify_email.html", error="Введите код из письма", email=email)
+
+        ok = verify_email_code(conn, user_id, code)
+        conn.close()
+
+        if ok:
+            return render_template("verify_email.html", success="Почта подтверждена! Теперь можно войти.", email=email)
+
+        return render_template("verify_email.html", error="Неверный или просроченный код.", email=email)
+
+    if wait_seconds > 0:
+        return render_template(
+            "verify_email.html",
+            info=f"Код уже отправлен. Подождите {wait_seconds} сек.",
+            email=email_prefill,
+            wait_seconds=wait_seconds,
+        )
+
+    return render_template("verify_email.html", email=email_prefill)
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -822,10 +1044,20 @@ def register():
             role,
             approved
         ))
+        cur.execute(sql("SELECT id FROM users WHERE email=?"), (email,))
+        row = cur.fetchone()
+        user_id = row["id"] if hasattr(row, "keys") else row[0]
 
-        conn.commit()
+        try:
+            sent, wait_seconds = request_email_code(conn, user_id, email)
+        except Exception as e:
+            conn.close()
+            return f"Ошибка: не удалось отправить код подтверждения: {e}"
+
         conn.close()
-        return redirect(url_for("login"))
+        if sent:
+            return redirect(url_for("verify_email", email=email))
+        return redirect(url_for("verify_email", email=email, wait=wait_seconds))
 
     return render_template("register.html")
 
@@ -839,6 +1071,7 @@ def logout():
 # ✅ Инициализация (Postgres)
 init_db()
 migrate_email_confirm()
+migrate_email_codes()
 ensure_admin_exists()
 ensure_test_users()
 
