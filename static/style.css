@@ -566,6 +566,23 @@ body{
   color: #64748b; /* серо-синий */
 }
 
+/* Profile logout button (soft, clean) */
+.btn-logout-soft{
+  background: rgba(239,68,68,0.10);
+  color: #b91c1c;
+  border: 1px solid rgba(239,68,68,0.35);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-weight: 700;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+}
+.btn-logout-soft:hover{
+  background: rgba(239,68,68,0.16);
+  color: #991b1b;
+  border-color: rgba(239,68,68,0.50);
+  transform: translateY(-1px);
+}
+
 /* ===== Responsive (mobile/tablet) ===== */
 @media (max-width: 992px){
   .navbar-brand img{ height: 52px; }
@@ -598,4 +615,20 @@ body{
   .hero-badges{ gap: 8px; }
   .badge-soft{ font-size: 12px; padding: 8px 10px; }
   .user-chip__name{ font-size: 13px; }
+}
+
+.btn-save-soft{
+  background: rgba(37,99,235,0.10);
+  color: #1d4ed8;
+  border: 1px solid rgba(37,99,235,0.35);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-weight: 700;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+}
+.btn-save-soft:hover{
+  background: rgba(37,99,235,0.16);
+  color: #1e40af;
+  border-color: rgba(37,99,235,0.45);
+  transform: translateY(-1px);
 }
