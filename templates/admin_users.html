@@ -27,9 +27,9 @@
             {% for u in rows %}
             <tr>
               <td class="ps-4" data-label="ID">#{{ u["id"] }}</td>
-              <td class="fw-semibold" data-label="???">{{ u["full_name"] }}</td>
+              <td class="fw-semibold" data-label="ФИО">{{ u["full_name"] }}</td>
               <td class="text-muted" data-label="Email">{{ u["email"] }}</td>
-              <td data-label="????">
+              <td data-label="Роль">
                 {% if u["role"] == "admin" %}
                   <span class="badge badge-soft badge-review">Админ</span>
                 {% elif u["role"] == "staff" %}
@@ -38,14 +38,14 @@
                   <span class="badge badge-soft badge-review">Студент</span>
                 {% endif %}
               </td>
-              <td data-label="??????">
+              <td data-label="Статус">
                 {% if u["role"] == "staff" and u["approved"] != 1 %}
                   <span class="badge badge-soft badge-returned">Ожидает подтверждения</span>
                 {% else %}
                   <span class="text-muted small">Активен</span>
                 {% endif %}
               </td>
-              <td class="text-end pe-4 action-cell" data-label="????????">
+              <td class="text-end pe-4 action-cell" data-label="Действия">
                 {% if u["role"] != "admin" %}
                 <form method="POST" action="{{ url_for('admin_user_delete', user_id=u['id']) }}"
                       class="d-inline"

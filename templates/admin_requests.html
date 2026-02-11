@@ -26,13 +26,13 @@
             {% for r in rows %}
             <tr>
               <td class="ps-4" data-label="ID">#{{ r["id"] }}</td>
-              <td data-label="???????">
+              <td data-label="Студент">
                 <div class="fw-semibold">{{ r["full_name"] }}</div>
                 <div class="text-muted small">{{ r["email"] }}</div>
               </td>
-              <td data-label="???">{{ r["req_type"] }}</td>
-              <td class="fw-semibold" data-label="????">{{ r["title"] }}</td>
-              <td data-label="??????">
+              <td data-label="Тип">{{ r["req_type"] }}</td>
+              <td class="fw-semibold" data-label="Тема">{{ r["title"] }}</td>
+              <td data-label="Статус">
                 {% if r["status"] == "review" %}
                   <span class="badge badge-soft badge-review">На рассмотрении</span>
                 {% elif r["status"] == "accepted" %}
@@ -41,8 +41,8 @@
                   <span class="badge badge-soft badge-returned">Отклонено</span>
                 {% endif %}
               </td>
-              <td class="text-muted small" data-label="????">{{ (r["created_at"] ~ "")[:10] }}</td>
-              <td class="text-end pe-4 action-cell" data-label="????????">
+              <td class="text-muted small" data-label="Дата">{{ (r["created_at"] ~ "")[:10] }}</td>
+              <td class="text-end pe-4 action-cell" data-label="Действия">
                 <a class="btn btn-sm btn-outline-premium btn-open" 
                     href="{{ url_for('admin_request_view_page', req_id=r['id']) }}">
                     Открыть</a>
