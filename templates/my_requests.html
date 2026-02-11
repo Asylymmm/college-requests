@@ -38,10 +38,10 @@
           <tbody>
             {% for r in rows %}
             <tr>
-              <td class="ps-4">{{ r["req_type"] }}</td>
-              <td class="fw-semibold">{{ r["title"] }}</td>
+              <td class="ps-4" data-label="???">{{ r["req_type"] }}</td>
+              <td class="fw-semibold" data-label="?????????">{{ r["title"] }}</td>
 
-              <td>
+              <td data-label="??????">
                 {% set s = r["status"] %}
                 {% if s == "review" %}
                   <span class="badge badge-soft badge-review">На расмотрении</span>
@@ -52,9 +52,9 @@
                 {% endif %}
               </td>
 
-              <td class="text-muted small">{{ (r["created_at"] ~ "")[:10] }}</td>
+              <td class="text-muted small" data-label="????">{{ (r["created_at"] ~ "")[:10] }}</td>
 
-              <td class="text-end pe-4">
+              <td class="text-end pe-4 action-cell" data-label="????????">
                 {% if r["status"] == "review" %}
                   <form method="POST" action="{{ url_for('delete_request', req_id=r['id']) }}"
                       onsubmit="return confirm('Удалить заявку?');" class="d-inline">

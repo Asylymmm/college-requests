@@ -56,11 +56,6 @@
       <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
         <div>
           <span class="text-muted small">Текущий статус:</span>
-          <span class="fw-semibold ms-1">
-            {% if r["status"] == "review" %}На рассмотрении{% endif %}
-            {% if r["status"] == "accepted" %}Просмотрено{% endif %}
-            {% if r["status"] == "returned" %}Отклонено{% endif %}
-          </span>
         </div>
 
         <div>
@@ -75,6 +70,7 @@
       </div>
 
       <!-- Actions -->
+      {% if r["status"] == "review" %}
       <div class="d-flex gap-2 flex-wrap">
         <form method="post" action="{{ url_for('panel_request_set_status', req_id=r['id'], status='accepted') }}">
           <button class="btn btn-primary-premium" type="submit">
@@ -88,6 +84,10 @@
           </button>
         </form>
       </div>
+      {% else %}
+      <div class="text-muted small ">Статус уже установлен. Изменить нельзя.</div>
+      {% endif %}
+
 
     </div>
   </div>

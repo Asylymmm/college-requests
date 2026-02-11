@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+﻿from flask import Flask, render_template, request, redirect, url_for, session
 from pathlib import Path
 from functools import wraps
 
@@ -22,8 +22,8 @@ load_dotenv()
 
 def send_email_code(to_email: str, code: str):
     """
-    Отправка кода через SMTP.
-    Нужны переменные окружения:
+    РћС‚РїСЂР°РІРєР° РєРѕРґР° С‡РµСЂРµР· SMTP.
+    РќСѓР¶РЅС‹ РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ:
       SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
     """
     smtp_host = os.getenv("SMTP_HOST")
@@ -33,18 +33,18 @@ def send_email_code(to_email: str, code: str):
     mail_from = os.getenv("MAIL_FROM")
 
     if not all([smtp_host, smtp_user, smtp_pass, mail_from]):
-        raise RuntimeError("Нет SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_FROM в переменных окружения")
+        raise RuntimeError("РќРµС‚ SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_FROM РІ РїРµСЂРµРјРµРЅРЅС‹С… РѕРєСЂСѓР¶РµРЅРёСЏ")
 
     msg = EmailMessage()
-    msg["Subject"] = "Код подтверждения"
+    msg["Subject"] = "РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ"
     msg["From"] = mail_from
     msg["To"] = to_email
-    msg.set_content(f"Ваш код подтверждения: {code}\nКод действует 10 минут.")
+    msg.set_content(f"Р’Р°С€ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: {code}\nРљРѕРґ РґРµР№СЃС‚РІСѓРµС‚ 10 РјРёРЅСѓС‚.")
     msg.add_alternative(f"""
     <div style="font-family:Arial,sans-serif;font-size:16px">
-      <p>Ваш код подтверждения:</p>
+      <p>Р’Р°С€ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ:</p>
       <h2 style="letter-spacing:2px">{code}</h2>
-      <p>Код действует 10 минут.</p>
+      <p>РљРѕРґ РґРµР№СЃС‚РІСѓРµС‚ 10 РјРёРЅСѓС‚.</p>
     </div>
     """, subtype="html")
 
@@ -57,8 +57,8 @@ def send_email_code(to_email: str, code: str):
 
 def send_password_reset_code(to_email: str, code: str):
     """
-    Отправка кода для сброса пароля через SMTP.
-    Использует те же переменные окружения, что и send_email_code.
+    РћС‚РїСЂР°РІРєР° РєРѕРґР° РґР»СЏ СЃР±СЂРѕСЃР° РїР°СЂРѕР»СЏ С‡РµСЂРµР· SMTP.
+    РСЃРїРѕР»СЊР·СѓРµС‚ С‚Рµ Р¶Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ, С‡С‚Рѕ Рё send_email_code.
     """
     smtp_host = os.getenv("SMTP_HOST")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -67,18 +67,18 @@ def send_password_reset_code(to_email: str, code: str):
     mail_from = os.getenv("MAIL_FROM")
 
     if not all([smtp_host, smtp_user, smtp_pass, mail_from]):
-        raise RuntimeError("Нет SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_FROM в переменных окружения")
+        raise RuntimeError("РќРµС‚ SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_FROM РІ РїРµСЂРµРјРµРЅРЅС‹С… РѕРєСЂСѓР¶РµРЅРёСЏ")
 
     msg = EmailMessage()
-    msg["Subject"] = "Код для сброса пароля"
+    msg["Subject"] = "РљРѕРґ РґР»СЏ СЃР±СЂРѕСЃР° РїР°СЂРѕР»СЏ"
     msg["From"] = mail_from
     msg["To"] = to_email
-    msg.set_content(f"Ваш код для сброса пароля: {code}\nКод действует 10 минут.")
+    msg.set_content(f"Р’Р°С€ РєРѕРґ РґР»СЏ СЃР±СЂРѕСЃР° РїР°СЂРѕР»СЏ: {code}\nРљРѕРґ РґРµР№СЃС‚РІСѓРµС‚ 10 РјРёРЅСѓС‚.")
     msg.add_alternative(f"""
     <div style="font-family:Arial,sans-serif;font-size:16px">
-      <p>Ваш код для сброса пароля:</p>
+      <p>Р’Р°С€ РєРѕРґ РґР»СЏ СЃР±СЂРѕСЃР° РїР°СЂРѕР»СЏ:</p>
       <h2 style="letter-spacing:2px">{code}</h2>
-      <p>Код действует 10 минут.</p>
+      <p>РљРѕРґ РґРµР№СЃС‚РІСѓРµС‚ 10 РјРёРЅСѓС‚.</p>
     </div>
     """, subtype="html")
 
@@ -91,8 +91,8 @@ def send_password_reset_code(to_email: str, code: str):
 
 def create_or_replace_email_code(conn, user_id: int, email: str):
     """
-    Создаёт/обновляет код подтверждения в таблице email_codes и отправляет письмо.
-    Таблица email_codes должна существовать.
+    РЎРѕР·РґР°С‘С‚/РѕР±РЅРѕРІР»СЏРµС‚ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РІ С‚Р°Р±Р»РёС†Рµ email_codes Рё РѕС‚РїСЂР°РІР»СЏРµС‚ РїРёСЃСЊРјРѕ.
+    РўР°Р±Р»РёС†Р° email_codes РґРѕР»Р¶РЅР° СЃСѓС‰РµСЃС‚РІРѕРІР°С‚СЊ.
     """
     code = f"{random.randint(100000, 999999)}"
     code_hash = generate_password_hash(code)
@@ -100,7 +100,7 @@ def create_or_replace_email_code(conn, user_id: int, email: str):
     created_at = datetime.utcnow()
 
     cur = conn.cursor()
-    # Держим один актуальный код на пользователя (работает без UNIQUE)
+    # Р”РµСЂР¶РёРј РѕРґРёРЅ Р°РєС‚СѓР°Р»СЊРЅС‹Р№ РєРѕРґ РЅР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (СЂР°Р±РѕС‚Р°РµС‚ Р±РµР· UNIQUE)
     cur.execute(sql("DELETE FROM email_codes WHERE user_id=?"), (user_id,))
     cur.execute(sql("""
         INSERT INTO email_codes (user_id, code_hash, expires_at, created_at)
@@ -113,7 +113,7 @@ def create_or_replace_email_code(conn, user_id: int, email: str):
 
 def verify_email_code(conn, user_id: int, code: str) -> bool:
     """
-    Проверяет код. Если верный и не просрочен — ставит users.email_confirmed=1.
+    РџСЂРѕРІРµСЂСЏРµС‚ РєРѕРґ. Р•СЃР»Рё РІРµСЂРЅС‹Р№ Рё РЅРµ РїСЂРѕСЃСЂРѕС‡РµРЅ вЂ” СЃС‚Р°РІРёС‚ users.email_confirmed=1.
     """
     cur = conn.cursor()
     cur.execute(sql("""
@@ -128,11 +128,11 @@ def verify_email_code(conn, user_id: int, code: str) -> bool:
     if not row:
         return False
 
-    # совместимо с RealDictCursor и sqlite Row
+    # СЃРѕРІРјРµСЃС‚РёРјРѕ СЃ RealDictCursor Рё sqlite Row
     db_code_hash = row["code_hash"] if hasattr(row, "keys") else row[0]
     expires_at = row["expires_at"] if hasattr(row, "keys") else row[1]
 
-    # expires_at может быть datetime или строкой
+    # expires_at РјРѕР¶РµС‚ Р±С‹С‚СЊ datetime РёР»Рё СЃС‚СЂРѕРєРѕР№
     if isinstance(expires_at, str):
         try:
             expires_at = datetime.fromisoformat(expires_at)
@@ -414,11 +414,11 @@ def migrate_email_confirm():
     conn = get_db()
     cur = conn.cursor()
 
-    # Определяем тип БД
+    # РћРїСЂРµРґРµР»СЏРµРј С‚РёРї Р‘Р”
     is_pg = bool(os.getenv("DATABASE_URL"))
 
     if is_pg:
-        # Postgres: добавляем колонки, если нет
+        # Postgres: РґРѕР±Р°РІР»СЏРµРј РєРѕР»РѕРЅРєРё, РµСЃР»Рё РЅРµС‚
         cur.execute("""
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS email_confirmed INTEGER NOT NULL DEFAULT 0
@@ -428,7 +428,7 @@ def migrate_email_confirm():
             ADD COLUMN IF NOT EXISTS email_confirm_code TEXT
         """)
     else:
-        # SQLite: проверяем через PRAGMA table_info
+        # SQLite: РїСЂРѕРІРµСЂСЏРµРј С‡РµСЂРµР· PRAGMA table_info
         cur.execute("PRAGMA table_info(users)")
         cols = [r[1] for r in cur.fetchall()]  # column name = index 1
 
@@ -486,7 +486,7 @@ def migrate_username_change():
 
 
 def calc_age(birth_date_val):
-    # birth_date_val в Postgres row_factory=dict_row обычно будет date или None
+    # birth_date_val РІ Postgres row_factory=dict_row РѕР±С‹С‡РЅРѕ Р±СѓРґРµС‚ date РёР»Рё None
     if not birth_date_val:
         return None
     if isinstance(birth_date_val, str):
@@ -589,8 +589,8 @@ def ensure_test_users():
     cur = conn.cursor()
 
     users = [
-        {"full_name": "Тест Студент", "email": "student1", "password": "1234", "role": "student", "approved": 1},
-        {"full_name": "Тест Сотрудник", "email": "staff1", "password": "1234", "role": "staff", "approved": 1},
+        {"full_name": "РўРµСЃС‚ РЎС‚СѓРґРµРЅС‚", "email": "student1", "password": "1234", "role": "student", "approved": 1},
+        {"full_name": "РўРµСЃС‚ РЎРѕС‚СЂСѓРґРЅРёРє", "email": "staff1", "password": "1234", "role": "staff", "approved": 1},
     ]
 
     for u in users:
@@ -629,7 +629,7 @@ def profile_view():
     conn.close()
 
     if not u:
-        return "Пользователь не найден"
+        return "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ"
 
     age = calc_age(u["birth_date"])
     return render_template("profile.html", u=u, age=age)
@@ -651,7 +651,7 @@ def profile_edit():
 
     if not u:
         conn.close()
-        return "Пользователь не найден"
+        return "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ"
 
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
@@ -665,21 +665,21 @@ def profile_edit():
                 birth_date = datetime.strptime(birth_date_raw, "%Y-%m-%d").date()
             except:
                 conn.close()
-                return "Неверная дата рождения"
+                return "РќРµРІРµСЂРЅР°СЏ РґР°С‚Р° СЂРѕР¶РґРµРЅРёСЏ"
 
         group_name_new = request.form.get("group_name", "").strip()
         username_raw = request.form.get("username", "").strip().lower()
 
         if not full_name:
             conn.close()
-            return "Введите ФИО"
+            return "Р’РІРµРґРёС‚Рµ Р¤РРћ"
 
-        # группа: выбрать можно только 1 раз
+        # РіСЂСѓРїРїР°: РІС‹Р±СЂР°С‚СЊ РјРѕР¶РЅРѕ С‚РѕР»СЊРєРѕ 1 СЂР°Р·
         group_to_save = u["group_name"]
         if not u["group_name"] and group_name_new:
             group_to_save = group_name_new
 
-        # username: можно менять раз в 7 дней
+        # username: РјРѕР¶РЅРѕ РјРµРЅСЏС‚СЊ СЂР°Р· РІ 7 РґРЅРµР№
         username_to_save = u["username"]
         last_username_change_to_save = u["last_username_change"] if "last_username_change" in u.keys() else None
         can_change_username, wait_days = username_change_allowed(username_to_save, last_username_change_to_save)
@@ -687,21 +687,21 @@ def profile_edit():
         if username_raw and username_raw != username_to_save:
             if not can_change_username:
                 conn.close()
-                return f"Ник можно менять раз в 7 дней. Подождите {wait_days} дн."
+                return f"РќРёРє РјРѕР¶РЅРѕ РјРµРЅСЏС‚СЊ СЂР°Р· РІ 7 РґРЅРµР№. РџРѕРґРѕР¶РґРёС‚Рµ {wait_days} РґРЅ."
 
             if not USERNAME_RE.match(username_raw):
                 conn.close()
-                return "Ник: 3–20 символов, только a-z, 0-9 и _"
+                return "РќРёРє: 3вЂ“20 СЃРёРјРІРѕР»РѕРІ, С‚РѕР»СЊРєРѕ a-z, 0-9 Рё _"
 
             cur.execute(sql("SELECT id FROM users WHERE username=? AND id<>?"), (username_raw, u["id"]))
             if cur.fetchone():
                 conn.close()
-                return "Этот ник уже занят"
+                return "Р­С‚РѕС‚ РЅРёРє СѓР¶Рµ Р·Р°РЅСЏС‚"
 
             username_to_save = username_raw
             last_username_change_to_save = datetime.utcnow()
 
-        # обработка аватара
+        # РѕР±СЂР°Р±РѕС‚РєР° Р°РІР°С‚Р°СЂР°
         avatar_rel = u["avatar"]
         f = request.files.get("avatar")
         if f and f.filename:
@@ -715,7 +715,7 @@ def profile_edit():
                 avatar_rel = rel_path
             else:
                 conn.close()
-                return "Аватар: разрешены png/jpg/jpeg/webp"
+                return "РђРІР°С‚Р°СЂ: СЂР°Р·СЂРµС€РµРЅС‹ png/jpg/jpeg/webp"
 
         cur.execute(sql("""
             UPDATE users
@@ -750,7 +750,13 @@ def profile_edit():
         u["username"],
         u["last_username_change"] if "last_username_change" in u.keys() else None
     )
-    allowed_groups = ["2ВТ-9А2"]
+    groups_path = BASE_DIR / "groups.txt"
+    try:
+        with open(groups_path, "r", encoding="utf-8") as f:
+            allowed_groups = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        allowed_groups = []
+
 
     return render_template(
         "profile_edit.html",
@@ -786,18 +792,22 @@ def panel_requests():
 @role_required("staff", "admin")
 def panel_request_set_status(req_id, status):
     if status not in ("review", "accepted", "returned"):
-        return "Неверный статус"
+        return "РќРµРІРµСЂРЅС‹Р№ СЃС‚Р°С‚СѓСЃ"
 
     conn = get_db()
     cur = conn.cursor()
     cur.execute(sql("""
         UPDATE requests
         SET status=?, updated_at=?
-        WHERE id=?
+        WHERE id=? AND status='review'
     """), (status, datetime.now(), req_id))
+    updated = cur.rowcount
     conn.commit()
     conn.close()
-    return redirect(url_for("panel_requests"))
+    if updated == 0:
+        return redirect(url_for("panel_request_view", req_id=req_id))
+    target = "admin_requests" if session.get("role") == "admin" else "panel_requests"
+    return redirect(url_for(target))
 
 
 @app.route("/")
@@ -827,7 +837,7 @@ def login():
 
         if user:
             if user["role"] == "staff" and int(user["approved"]) != 1:
-                return render_template("login.html", error="Доступ сотрудника ожидает подтверждения администратора")
+                return render_template("login.html", error="Р”РѕСЃС‚СѓРї СЃРѕС‚СЂСѓРґРЅРёРєР° РѕР¶РёРґР°РµС‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°")
 
             email_confirmed = user["email_confirmed"] if "email_confirmed" in user.keys() else 0
             bypass_confirm = (
@@ -839,7 +849,7 @@ def login():
                     conn = get_db()
                     sent, wait_seconds = request_email_code(conn, user["id"], user["email"])
                 except Exception as e:
-                    return render_template("login.html", error=f"Не удалось отправить код подтверждения: {e}", email=email)
+                    return render_template("login.html", error=f"РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: {e}", email=email)
                 finally:
                     try:
                         conn.close()
@@ -854,7 +864,7 @@ def login():
             session["full_name"] = user["full_name"]
             session["role"] = user["role"]
 
-            # ВАЖНО: для sqlite Row нет .get(), поэтому так:
+            # Р’РђР–РќРћ: РґР»СЏ sqlite Row РЅРµС‚ .get(), РїРѕСЌС‚РѕРјСѓ С‚Р°Рє:
             session["avatar"] = user["avatar"] if "avatar" in user.keys() else None
             session["username"] = user["username"] if "username" in user.keys() else None
 
@@ -864,8 +874,8 @@ def login():
                 return redirect(url_for("admin_dashboard"))
             return redirect(url_for("staff_dashboard"))
 
-        # ❗ вот это вместо "return Ошибка..."
-        return render_template("login.html", error="Неверный email или пароль", email=email)
+        # вќ— РІРѕС‚ СЌС‚Рѕ РІРјРµСЃС‚Рѕ "return РћС€РёР±РєР°..."
+        return render_template("login.html", error="РќРµРІРµСЂРЅС‹Р№ email РёР»Рё РїР°СЂРѕР»СЊ", email=email)
 
     return render_template("login.html")
 
@@ -904,7 +914,7 @@ def admin_dashboard():
         staff_count=staff_count,
         staff_pending=staff_pending,
         requests_count=requests_count,
-        full_name=session.get("full_name", "Неизвестно"),
+        full_name=session.get("full_name", "РќРµРёР·РІРµСЃС‚РЅРѕ"),
     )
 
 
@@ -930,10 +940,10 @@ def admin_users():
 def admin_user_delete(user_id):
     confirm_code = request.form.get("confirm_code", "").strip()
     if confirm_code != ADMIN_DELETE_CODE:
-        return "Неверный код подтверждения"
+        return "РќРµРІРµСЂРЅС‹Р№ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ"
 
     if int(session.get("user_id", 0)) == int(user_id):
-        return "Нельзя удалить текущего пользователя"
+        return "РќРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ"
 
     conn = get_db()
     cur = conn.cursor()
@@ -977,21 +987,23 @@ def admin_request_view_page(req_id):
     conn.close()
 
     if not r:
-        return "Заявка не найдена"
+        return "Р—Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°"
 
     return render_template("admin_request_view.html", r=r)
 
 
 @app.route("/student")
+@login_required
+@role_required("student")
 def student_dashboard():
-    return render_template("student.html", full_name=session.get("full_name", "Неизвестно"))
+    return render_template("student.html", full_name=session.get("full_name", "РќРµРёР·РІРµСЃС‚РЅРѕ"))
 
 
 @app.route("/staff")
 @login_required
 @role_required("staff")
 def staff_dashboard():
-    return render_template("staff.html", full_name=session.get("full_name", "Неизвестно"))
+    return render_template("staff.html", full_name=session.get("full_name", "РќРµРёР·РІРµСЃС‚РЅРѕ"))
 
 
 @app.route("/request/new", methods=["GET", "POST"])
@@ -1096,7 +1108,7 @@ def admin_staff_approve(user_id):
 def admin_staff_reject(user_id):
     confirm_code = request.form.get("confirm_code", "").strip()
     if confirm_code != ADMIN_DELETE_CODE:
-        return "Неверный код подтверждения"
+        return "РќРµРІРµСЂРЅС‹Р№ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ"
 
     conn = get_db()
     cur = conn.cursor()
@@ -1122,7 +1134,7 @@ def panel_request_view(req_id):
     conn.close()
 
     if not r:
-        return "Заявка не найдена"
+        return "Р—Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°"
 
     return render_template("panel_request_view.html", r=r)
 
@@ -1132,18 +1144,21 @@ def panel_request_view(req_id):
 @role_required("admin")
 def admin_request_set_status(req_id, status):
     if status not in ("review", "accepted", "returned"):
-        return "Неверный статус"
+        return "РќРµРІРµСЂРЅС‹Р№ СЃС‚Р°С‚СѓСЃ"
 
     conn = get_db()
     cur = conn.cursor()
     cur.execute(sql("""
         UPDATE requests
         SET status=?, updated_at=?
-        WHERE id=?
+        WHERE id=? AND status='review'
     """), (status, datetime.now(), req_id))
+    updated = cur.rowcount
     conn.commit()
     conn.close()
 
+    if updated == 0:
+        return redirect(url_for("admin_request_view_page", req_id=req_id))
     return redirect(url_for("admin_requests"))
 
 
@@ -1159,7 +1174,7 @@ def verify_email():
         action = request.form.get("action", "verify")
 
         if not email:
-            return render_template("verify_email.html", error="Введите email", email=email)
+            return render_template("verify_email.html", error="Р’РІРµРґРёС‚Рµ email", email=email)
 
         conn = get_db()
         cur = conn.cursor()
@@ -1172,7 +1187,7 @@ def verify_email():
 
         if not user:
             conn.close()
-            return render_template("verify_email.html", error="Пользователь с таким email не найден", email=email)
+            return render_template("verify_email.html", error="РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ С‚Р°РєРёРј email РЅРµ РЅР°Р№РґРµРЅ", email=email)
 
         if hasattr(user, "keys"):
             user_id = user["id"]
@@ -1193,28 +1208,28 @@ def verify_email():
 
         if int(email_confirmed) == 1:
             conn.close()
-            return render_template("verify_email.html", success="Почта уже подтверждена. Теперь можно войти.", email=email)
+            return render_template("verify_email.html", success="РџРѕС‡С‚Р° СѓР¶Рµ РїРѕРґС‚РІРµСЂР¶РґРµРЅР°. РўРµРїРµСЂСЊ РјРѕР¶РЅРѕ РІРѕР№С‚Рё.", email=email)
 
         if action == "resend":
             try:
                 sent, wait_seconds = request_email_code(conn, user_id, email)
             except Exception as e:
                 conn.close()
-                return render_template("verify_email.html", error=f"Не удалось отправить код: {e}", email=email)
+                return render_template("verify_email.html", error=f"РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєРѕРґ: {e}", email=email)
 
             conn.close()
             if sent:
-                return render_template("verify_email.html", info="Код отправлен повторно.", email=email)
+                return render_template("verify_email.html", info="РљРѕРґ РѕС‚РїСЂР°РІР»РµРЅ РїРѕРІС‚РѕСЂРЅРѕ.", email=email)
             return render_template(
                 "verify_email.html",
-                info=f"Код уже отправлен. Подождите {wait_seconds} сек.",
+                info=f"РљРѕРґ СѓР¶Рµ РѕС‚РїСЂР°РІР»РµРЅ. РџРѕРґРѕР¶РґРёС‚Рµ {wait_seconds} СЃРµРє.",
                 email=email,
                 wait_seconds=wait_seconds,
             )
 
         if not code:
             conn.close()
-            return render_template("verify_email.html", error="Введите код из письма", email=email)
+            return render_template("verify_email.html", error="Р’РІРµРґРёС‚Рµ РєРѕРґ РёР· РїРёСЃСЊРјР°", email=email)
 
         ok = verify_email_code(conn, user_id, code)
         conn.close()
@@ -1223,7 +1238,7 @@ def verify_email():
             if role == "staff" and int(approved) != 1:
                 return render_template(
                     "verify_email.html",
-                    success="Почта подтверждена! Доступ сотрудника ожидает подтверждения администратора.",
+                    success="РџРѕС‡С‚Р° РїРѕРґС‚РІРµСЂР¶РґРµРЅР°! Р”РѕСЃС‚СѓРї СЃРѕС‚СЂСѓРґРЅРёРєР° РѕР¶РёРґР°РµС‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.",
                     email=email,
                 )
 
@@ -1235,12 +1250,12 @@ def verify_email():
 
             return redirect(url_for("dashboard"))
 
-        return render_template("verify_email.html", error="Неверный или просроченный код.", email=email)
+        return render_template("verify_email.html", error="РќРµРІРµСЂРЅС‹Р№ РёР»Рё РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Р№ РєРѕРґ.", email=email)
 
     if wait_seconds > 0:
         return render_template(
             "verify_email.html",
-            info=f"Код уже отправлен. Подождите {wait_seconds} сек.",
+            info=f"РљРѕРґ СѓР¶Рµ РѕС‚РїСЂР°РІР»РµРЅ. РџРѕРґРѕР¶РґРёС‚Рµ {wait_seconds} СЃРµРє.",
             email=email_prefill,
             wait_seconds=wait_seconds,
         )
@@ -1253,7 +1268,7 @@ def forgot_password():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         if not email:
-            return render_template("forgot_password.html", error="Введите email")
+            return render_template("forgot_password.html", error="Р’РІРµРґРёС‚Рµ email")
 
         conn = get_db()
         cur = conn.cursor()
@@ -1262,14 +1277,14 @@ def forgot_password():
 
         if not row:
             conn.close()
-            return render_template("forgot_password.html", info="Если такой email существует, код отправлен.")
+            return render_template("forgot_password.html", info="Р•СЃР»Рё С‚Р°РєРѕР№ email СЃСѓС‰РµСЃС‚РІСѓРµС‚, РєРѕРґ РѕС‚РїСЂР°РІР»РµРЅ.")
 
         user_id = row["id"] if hasattr(row, "keys") else row[0]
         try:
             sent, wait_seconds = request_password_reset_code(conn, user_id, email)
         except Exception as e:
             conn.close()
-            return render_template("forgot_password.html", error=f"Не удалось отправить код: {e}")
+            return render_template("forgot_password.html", error=f"РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєРѕРґ: {e}")
 
         conn.close()
         if sent:
@@ -1277,7 +1292,7 @@ def forgot_password():
 
         return render_template(
             "forgot_password.html",
-            info=f"Код уже отправлен. Подождите {wait_seconds} сек.",
+            info=f"РљРѕРґ СѓР¶Рµ РѕС‚РїСЂР°РІР»РµРЅ. РџРѕРґРѕР¶РґРёС‚Рµ {wait_seconds} СЃРµРє.",
             wait_seconds=wait_seconds,
             email=email,
         )
@@ -1296,13 +1311,13 @@ def reset_password():
         password2 = request.form.get("password2", "").strip()
 
         if not email:
-            return render_template("reset_password.html", error="Введите email", email=email)
+            return render_template("reset_password.html", error="Р’РІРµРґРёС‚Рµ email", email=email)
         if not code:
-            return render_template("reset_password.html", error="Введите код из письма", email=email)
+            return render_template("reset_password.html", error="Р’РІРµРґРёС‚Рµ РєРѕРґ РёР· РїРёСЃСЊРјР°", email=email)
         if not password1 or not password2:
-            return render_template("reset_password.html", error="Введите новый пароль два раза", email=email)
+            return render_template("reset_password.html", error="Р’РІРµРґРёС‚Рµ РЅРѕРІС‹Р№ РїР°СЂРѕР»СЊ РґРІР° СЂР°Р·Р°", email=email)
         if password1 != password2:
-            return render_template("reset_password.html", error="Пароли не совпадают", email=email)
+            return render_template("reset_password.html", error="РџР°СЂРѕР»Рё РЅРµ СЃРѕРІРїР°РґР°СЋС‚", email=email)
 
         conn = get_db()
         cur = conn.cursor()
@@ -1310,13 +1325,13 @@ def reset_password():
         row = cur.fetchone()
         if not row:
             conn.close()
-            return render_template("reset_password.html", error="Пользователь не найден", email=email)
+            return render_template("reset_password.html", error="РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ", email=email)
 
         user_id = row["id"] if hasattr(row, "keys") else row[0]
         ok = verify_password_reset_code(conn, user_id, code)
         if not ok:
             conn.close()
-            return render_template("reset_password.html", error="Неверный или просроченный код", email=email)
+            return render_template("reset_password.html", error="РќРµРІРµСЂРЅС‹Р№ РёР»Рё РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Р№ РєРѕРґ", email=email)
 
         cur.execute(sql("UPDATE users SET password=? WHERE id=?"), (generate_password_hash(password1), user_id))
         conn.commit()
@@ -1337,13 +1352,13 @@ def register():
         staff_code = request.form.get("staff_code", "").strip()
 
         if not full_name or not email or not password:
-            return "Ошибка: заполните все поля"
+            return "РћС€РёР±РєР°: Р·Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ"
 
         if "@" not in email:
-            return "Ошибка: введите корректный Gmail"
+            return "РћС€РёР±РєР°: РІРІРµРґРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅС‹Р№ Gmail"
 
         if role == "staff" and staff_code != STAFF_REGISTER_CODE:
-            return "Ошибка: неверный код сотрудника"
+            return "РћС€РёР±РєР°: РЅРµРІРµСЂРЅС‹Р№ РєРѕРґ СЃРѕС‚СЂСѓРґРЅРёРєР°"
 
         conn = get_db()
         cur = conn.cursor()
@@ -1351,7 +1366,7 @@ def register():
         cur.execute(sql("SELECT id FROM users WHERE email=?"), (email,))
         if cur.fetchone():
             conn.close()
-            return "Ошибка: такой Gmail уже зарегистрирован"
+            return "РћС€РёР±РєР°: С‚Р°РєРѕР№ Gmail СѓР¶Рµ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅ"
 
         approved = 1 if role == "student" else 0
 
@@ -1373,7 +1388,7 @@ def register():
             sent, wait_seconds = request_email_code(conn, user_id, email)
         except Exception as e:
             conn.close()
-            return f"Ошибка: не удалось отправить код подтверждения: {e}"
+            return f"РћС€РёР±РєР°: РЅРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: {e}"
 
         conn.close()
         if sent:
@@ -1389,7 +1404,7 @@ def logout():
     return redirect(url_for("home"))
 
 
-# ✅ Инициализация (Postgres)
+# вњ… РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ (Postgres)
 init_db()
 migrate_email_confirm()
 migrate_email_codes()
@@ -1399,3 +1414,5 @@ ensure_test_users()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
